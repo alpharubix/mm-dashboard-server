@@ -24,6 +24,7 @@ const app = express()
 
 const allowedOrigins = [
   'https://mm-dashboard-sepia.vercel.app',
+  'https://mm-dashboard-client.vercel.app',
   'http://localhost:5173',
 ]
 

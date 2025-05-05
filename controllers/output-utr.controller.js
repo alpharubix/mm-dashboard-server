@@ -87,8 +87,6 @@ export async function outputUtrCsvParseAndSave(req, res) {
       ...r,
       invoiceAmount: Number(r.invoiceAmount),
       loanAmount: Number(r.loanAmount),
-      // invoiceDate: new Date(r.invoiceDate),
-      // loanDisbursementDate: new Date(r.loanDisbursementDate),
       invoiceDate: parse(r.invoiceDate, 'dd-MM-yyyy', new Date()),
       loanDisbursementDate: parse(
         r.loanDisbursementDate,
