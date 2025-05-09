@@ -1,6 +1,0 @@
-SNo,Company Name,Distributor Code,City,State,Lender,Sanction Limit,Operative Limit,Utilised Limit,Available Limit,Overdue,Billing Status
-1,Alpha Corp,D105,New York,NY,Axis Bank,1000000,900000,700000,200000,5000,Positive
-2,Beta Ltd,D108,Los Angeles,CA,Axis Bank,1200000,1000000,800000,200000,3000,Negative
-3,Gamma Industries,D102,Chicago,IL,Not Axis Bank,1500000,1200000,900000,300000,10000,Positive
-4,Delta Solutions,D103,Houston,TX,SBI,1800000,1400000,00000,00000,000,Negative
-5,Omega Tech,D109,San Diego,CA,HDFC Bank,2000000,1800000,1500000,300000,5000,Positive
