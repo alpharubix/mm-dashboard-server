@@ -220,37 +220,60 @@ app.get('/users', async (req, res) => {
 app.post('/register', async (req, res) => {
   const { email, password, role } = req.body
 
-  const existingUser = await User.findOne({ email })
-  if (existingUser) {
-    return res.status(400).json({ message: 'Email already registered' })
+  // Basic validation
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' })
   }
 
-  const hashed = await bcrypt.hash(password, 10)
-  const user = await User.create({ email, password: hashed, role })
+  try {
+    const existingUser = await User.findOne({ email })
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email already registered' })
+    }
+
+    const hashed = await bcrypt.hash(password, 10)
+    const user = await User.create({ email, password: hashed, role })
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      ENV.JWT_SECRET,
+      { expiresIn: '1h' }
+    )
+
+    res.status(201).json({ token, message: 'Registered successfully' })
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: 'Registration failed', error: error.message })
+  }
+})
+
+// Login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body
+
+  // Optional: check for missing fields
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' })
+  }
+
+  const user = await User.findOne({ email })
+  if (!user) {
+    return res.status(401).json({ message: 'Invalid email or password.' })
+  }
+
+  const ok = await bcrypt.compare(password, user.password)
+  if (!ok) {
+    return res.status(401).json({ message: 'Invalid email or password.' })
+  }
+
   const token = jwt.sign(
     { id: user._id, email: user.email, role: user.role },
     ENV.JWT_SECRET,
     { expiresIn: '1h' }
   )
 
-  res.json({ token, message: 'Registered Successfully' })
-})
-
-// Login
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body
-  const user = await User.findOne({ email })
-  if (!user) return res.status(400).json({ message: 'no user' })
-  const ok = await bcrypt.compare(password, user.password)
-  if (!ok) return res.status(400).json({ message: 'invalid' })
-  const token = jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
-    ENV.JWT_SECRET,
-    {
-      expiresIn: '1h',
-    }
-  )
-  res.json({ token, message: 'Login Successfully' })
+  res.json({ token, message: 'Login successful.' })
 })
 
 // Change user role
@@ -260,14 +283,18 @@ app.put('/user/:id', async (req, res) => {
 
   try {
     const user = await User.findById(id)
-    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
 
     user.role = role
     await user.save()
 
-    res.json({ message: 'Role updated successfully', user })
+    res.json({ message: 'Role updated successfully' })
   } catch (error) {
-    res.status(500).json({ message: 'Something went wrong', error })
+    res
+      .status(500)
+      .json({ message: 'Failed to update role', error: error.message })
   }
 })
 
