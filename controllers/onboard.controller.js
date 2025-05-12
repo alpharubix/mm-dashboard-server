@@ -1,31 +1,9 @@
-import ftp from 'basic-ftp'
 import csvParser from 'csv-parser'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
-import path from 'path'
 
-import { ENV } from '../conf/index.js'
 import { OnboardNotification } from '../models/onboard.model.js'
-import { toCamelCase } from '../utils/index.js'
-
-async function uploadFileToFtp(filePath) {
-  const client = new ftp()
-  try {
-    await client.connect({
-      host: ENV.FTP_HOST,
-      user: ENV.FTP_USER,
-      password: ENV.FTP_PASS,
-      secure: false,
-    })
-    await client.uploadFrom(filePath, path.basename(filePath))
-  } finally {
-    try {
-      await client.close()
-    } catch (closeErr) {
-      console.warn('Error closing FTP connection:', closeErr)
-    }
-  }
-}
+import { toCamelCase, uploadFileToFtp } from '../utils/index.js'
 
 export async function onboardCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -42,6 +20,7 @@ export async function onboardCsvParseAndSave(req, res) {
   }
   const filePath = req.file.path
   const rows = []
+  let insertedDocs // To store the inserted documents if successful
 
   try {
     // 1) Parse CSV into rows[]
@@ -73,65 +52,66 @@ export async function onboardCsvParseAndSave(req, res) {
       })
     }
 
-    // 3) Check for duplicate distributorCodes
-    const distributorCodes = rows.map((r) => r.distributorCode)
-
-    const duplicatesInCSV = distributorCodes.filter(
-      (item, index) => distributorCodes.indexOf(item) !== index
+    // 3) Check for duplicate distributorCodes within CSV
+    const distributorCodesInCSV = rows.map((r) => r.distributorCode)
+    const duplicateCodesInCSV = distributorCodesInCSV.filter(
+      (item, index) => distributorCodesInCSV.indexOf(item) !== index
     )
-    if (duplicatesInCSV.length) {
+    if (duplicateCodesInCSV.length) {
       return res.status(400).json({
-        message: 'Duplicate Distributor Codes in CSV',
-        duplicates: duplicatesInCSV,
+        message: 'Duplicate Distributor Codes found in CSV',
+        duplicates: [...new Set(duplicateCodesInCSV)],
       })
     }
 
-    const existing = await OnboardNotification.find({
-      distributorCode: { $in: distributorCodes },
+    // 4) Check for existing distributorCodes in MongoDB
+    const existingInDB = await OnboardNotification.find({
+      distributorCode: { $in: distributorCodesInCSV },
     }).select('distributorCode')
-    if (existing.length) {
-      const existingNums = existing.map((doc) => doc.distributorCode)
+    if (existingInDB.length) {
+      const existingCodes = existingInDB.map((doc) => doc.distributorCode)
       return res.status(400).json({
-        message: 'distributorCodes already exist in DB',
-        duplicates: existingNums,
+        message: 'Distributor Codes already exist in the database',
+        duplicates: existingCodes,
       })
     }
 
-    // 4) Cast & prepare documents
+    // 5) Cast & prepare documents
     const toInsert = rows.map((r) => {
       const sno = Number(r.sno)
       const sanctionLimit = Number(r.sanctionLimit)
       const limitLiveDate = new Date(r.limitLiveDate)
-      if (isNaN(sno) || isNaN(sanctionLimit) || isNaN(limitLiveDate))
+      if (
+        isNaN(sno) ||
+        isNaN(sanctionLimit) ||
+        isNaN(limitLiveDate.getTime())
+      ) {
         throw new Error('Invalid data types in CSV')
+      }
       return { ...r, sno, sanctionLimit, limitLiveDate }
     })
 
-    // 5) Insert into Mongo
-    const docs = await OnboardNotification.insertMany(toInsert)
-
     // 6) FTP upload
-    try {
-      // await uploadFileToFtp(filePath)
-      res.json({
-        message: 'File parsed and saved successfully',
-        insertedCount: docs.length,
-      })
-    } catch (ftpErr) {
-      console.error('FTP upload error:', ftpErr)
-      // Optionally, you might want to handle FTP errors differently,
-      // perhaps sending a different status or message to the client.
-      // For now, we'll let the general error handling in the outer catch block handle it.
-    }
+    await uploadFileToFtp(filePath)
+
+    // 7) Insert into Mongo
+    insertedDocs = await OnboardNotification.insertMany(toInsert)
+
+    // 8) Success Response
+    res.json({
+      message: 'File parsed and saved successfully',
+      insertedCount: insertedDocs.length,
+    })
   } catch (error) {
-    console.error('CSV processing error:', error)
+    console.error('Error processing CSV and saving data:', error)
     res
       .status(500)
-      .json({ message: 'Internal server error', error: error.message })
+      .json({ message: 'Failed to process CSV', error: error.message })
   } finally {
-    // always delete temp file, even on error
+    // 9) Always delete temp file, even on error
     try {
       await unlink(filePath)
+      console.log(`Temporary file ${filePath} deleted.`)
     } catch (unlinkErr) {
       console.warn('Failed to delete temp file:', unlinkErr)
     }

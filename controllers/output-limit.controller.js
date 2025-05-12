@@ -1,7 +1,9 @@
 import csvParser from 'csv-parser'
 import fs from 'fs'
+import { unlink } from 'fs/promises'
+
 import { OutputLimit } from '../models/output-limit.model.js'
-import { toCamelCase } from '../utils/index.js'
+import { toCamelCase, uploadFileToFtp } from '../utils/index.js'
 
 export async function outputLimitCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -24,6 +26,7 @@ export async function outputLimitCsvParseAndSave(req, res) {
   }
   const filePath = req.file.path
   const rows = []
+  let insertedDocs // To store the inserted documents if successful
 
   try {
     // 1) Parse CSV into rows[]
@@ -55,45 +58,77 @@ export async function outputLimitCsvParseAndSave(req, res) {
       })
     }
 
-    // 3) Check for duplicate distributorCodes
-    const distributorCodes = rows.map((r) => r.distributorCode)
-    const duplicatesInCSV = distributorCodes.filter(
-      (item, index) => distributorCodes.indexOf(item) !== index
+    // 3) Check for duplicate distributorCodes within CSV
+    const distributorCodesInCSV = rows.map((r) => r.distributorCode)
+    const duplicateCodesInCSV = distributorCodesInCSV.filter(
+      (item, index) => distributorCodesInCSV.indexOf(item) !== index
     )
-    if (duplicatesInCSV.length) {
+    if (duplicateCodesInCSV.length) {
       return res.status(400).json({
-        message: 'Duplicate Distributor Codes in CSV',
-        duplicates: duplicatesInCSV,
+        message: 'Duplicate Distributor Codes found in CSV',
+        duplicates: [...new Set(duplicateCodesInCSV)], // Use Set to get unique duplicates
       })
     }
 
     // 4) Cast & prepare documents
-    const toInsert = rows.map((r) => ({
-      ...r,
-      sno: Number(r.sno),
-      sanctionLimit: Number(r.sanctionLimit),
-      operativeLimit: Number(r.operativeLimit),
-      utilisedLimit: Number(r.utilisedLimit),
-      availableLimit: Number(r.availableLimit),
-      overdue: Number(r.overdue),
-      billingStatus: r.billingStatus,
-    }))
+    const toInsert = rows.map((r) => {
+      // Clean and parse numbers
+      const sno = Number(r.sno)
+      const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
+      const operativeLimit = Number(r.operativeLimit.replace(/,/g, ''))
+      const utilisedLimit = Number(r.utilisedLimit.replace(/,/g, ''))
+      const availableLimit = Number(r.availableLimit.replace(/,/g, ''))
+      const overdue = Number(r.overdue.replace(/,/g, ''))
+
+      // Validation
+      if (
+        isNaN(sno) ||
+        isNaN(sanctionLimit) ||
+        isNaN(operativeLimit) ||
+        isNaN(utilisedLimit) ||
+        isNaN(availableLimit) ||
+        isNaN(overdue)
+      ) {
+        throw new Error('Invalid number in CSV')
+      }
+
+      return {
+        ...r,
+        sno,
+        sanctionLimit,
+        operativeLimit,
+        utilisedLimit,
+        availableLimit,
+        overdue,
+        billingStatus: r.billingStatus,
+      }
+    })
+
+    // 6) FTP upload
+    await uploadFileToFtp(filePath)
 
     // 5) Clear previous data
     await OutputLimit.deleteMany({})
 
     // 6) Insert into Mongo
-    const docs = await OutputLimit.insertMany(toInsert)
+    insertedDocs = await OutputLimit.insertMany(toInsert)
 
     res.json({
       message: 'File parsed and saved successfully',
-      insertedCount: docs.length,
+      insertedCount: insertedDocs.length,
     })
   } catch (err) {
-    console.error('CSV processing error:', err)
+    console.error('Error processing CSV and saving data:', err)
     res
       .status(500)
-      .json({ message: 'Internal server error', error: err.message })
+      .json({ message: 'Failed to process CSV', error: err.message })
+  } finally {
+    try {
+      await unlink(filePath)
+      console.log(`Temporary file ${filePath} deleted.`)
+    } catch (unlinkErr) {
+      console.warn('Failed to delete temp file:', unlinkErr)
+    }
   }
 }
 

@@ -5,7 +5,7 @@ const outputUTR = new mongoose.Schema(
     companyName: { type: String, required: true },
     distributorCode: { type: String, required: true },
     beneficiaryName: { type: String, required: true },
-    beneficiaryAccountNo: { type: String, required: true },
+    beneficiaryAccNo: { type: String, required: true },
     bankName: { type: String, required: true },
     ifscCode: { type: String, required: true },
     branch: { type: String, required: true },
