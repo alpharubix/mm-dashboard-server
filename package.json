@@ -1,11 +1,11 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "main": "upload.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon upload.js",
-    "start": "node upload.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",

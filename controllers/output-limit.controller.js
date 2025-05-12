@@ -96,3 +96,33 @@ export async function outputLimitCsvParseAndSave(req, res) {
       .json({ message: 'Internal server error', error: err.message })
   }
 }
+
+export const getOutputLimitData = async (req, res) => {
+  const page = Number(req.query.page || 1)
+  const limit = Number(req.query.limit || 10)
+  const companyName = String(req.query.companyName || '')
+  const distributorCode = String(req.query.distributorCode || '')
+
+  try {
+    const filter = {}
+    if (companyName) filter.companyName = new RegExp(companyName, 'i')
+    if (distributorCode)
+      filter.distributorCode = new RegExp(distributorCode, 'i')
+
+    const skip = (page - 1) * limit
+    const [data, total] = await Promise.all([
+      OutputLimit.find(filter).skip(skip).limit(limit),
+      OutputLimit.countDocuments(filter),
+    ])
+
+    res.status(200).json({
+      data,
+      page,
+      totalPages: Math.ceil(total / limit),
+      total,
+    })
+  } catch (err) {
+    console.error('Error in getOutputLimitData:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+}

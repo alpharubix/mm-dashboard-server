@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-export default function uploadMiddleware() {
+export default function upload() {
   try {
     const storage = multer.diskStorage({
       destination: (req, file, cb) => {
