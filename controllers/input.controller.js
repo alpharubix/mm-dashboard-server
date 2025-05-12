@@ -9,7 +9,7 @@ export async function inputFtpController(req, res) {
     'companyName',
     'distributorCode',
     'beneficiaryName',
-    'beneficiaryAccountNo',
+    'beneficiaryAccNo',
     'bankName',
     'ifscCode',
     'branch',

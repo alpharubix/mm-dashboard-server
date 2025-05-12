@@ -1,15 +1,17 @@
 import csvParser from 'csv-parser'
 import { parse } from 'date-fns'
 import fs from 'fs'
+import { unlink } from 'fs/promises'
+
 import { OutputUTR } from '../models/output-utr.model.js'
-import { toCamelCase } from '../utils/index.js'
+import { toCamelCase, uploadFileToFtp } from '../utils/index.js'
 
 export async function outputUtrCsvParseAndSave(req, res) {
   const requiredFields = [
     'companyName',
     'distributorCode',
     'beneficiaryName',
-    'beneficiaryAccountNo',
+    'beneficiaryAccNo',
     'bankName',
     'ifscCode',
     'branch',
@@ -27,6 +29,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
   }
   const filePath = req.file.path
   const rows = []
+  let insertedDocs // To store the inserted documents if successful
 
   try {
     // 1) Parse CSV into rows[]
@@ -66,7 +69,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
     if (duplicatesInCSV.length) {
       return res.status(400).json({
         message: 'Duplicate invoiceNumbers in CSV',
-        duplicates: duplicatesInCSV,
+        duplicates: [...new Set(duplicatesInCSV)],
       })
     }
 
@@ -77,37 +80,67 @@ export async function outputUtrCsvParseAndSave(req, res) {
     if (existing.length) {
       const existingNums = existing.map((doc) => doc.invoiceNumber)
       return res.status(400).json({
-        message: 'InvoiceNumbers already exist in DB',
+        message: 'InvoiceNumbers already exist in the database',
         duplicates: existingNums,
       })
     }
 
     // 5) Cast & insert
-    const toInsert = rows.map((r) => ({
-      ...r,
-      invoiceAmount: Number(r.invoiceAmount),
-      loanAmount: Number(r.loanAmount),
-      invoiceDate: parse(r.invoiceDate, 'dd-MM-yyyy', new Date()),
-      loanDisbursementDate: parse(
+    const toInsert = rows.map((r) => {
+      // Remove commas before converting to number
+      const invoiceAmount = Number(r.invoiceAmount.replace(/,/g, ''))
+      const loanAmount = Number(r.loanAmount.replace(/,/g, ''))
+
+      // Parse dates
+      const invoiceDate = parse(r.invoiceDate, 'dd-MM-yyyy', new Date())
+      const loanDisbursementDate = parse(
         r.loanDisbursementDate,
         'dd-MM-yyyy',
         new Date()
-      ),
-      utr: r.utr,
-      status: r.status,
-    }))
+      )
+
+      // Validation
+      if (
+        isNaN(invoiceAmount) ||
+        isNaN(loanAmount) ||
+        isNaN(invoiceDate.getTime()) ||
+        isNaN(loanDisbursementDate.getTime())
+      ) {
+        throw new Error('Invalid number or date in CSV')
+      }
+
+      return {
+        ...r,
+        invoiceAmount,
+        loanAmount,
+        invoiceDate,
+        loanDisbursementDate,
+        utr: r.utr,
+        status: r.status,
+      }
+    })
+
+    // 6) FTP upload
+    await uploadFileToFtp(filePath)
 
     // 6) Insert into Mongo
-    const docs = await OutputUTR.insertMany(toInsert)
+    insertedDocs = await OutputUTR.insertMany(toInsert)
     res.json({
       message: 'File parsed and saved successfully',
-      insertedCount: docs.length,
+      insertedCount: insertedDocs.length,
     })
   } catch (err) {
-    console.error('CSV processing error:', err)
+    console.error('Error processing CSV and saving data:', err)
     res
       .status(500)
-      .json({ message: 'Internal server error', error: err.message })
+      .json({ message: 'Failed to process CSV', error: err.message })
+  } finally {
+    try {
+      await unlink(filePath)
+      console.log(`Temporary file ${filePath} deleted.`)
+    } catch (unlinkErr) {
+      console.warn('Failed to delete temp file:', unlinkErr)
+    }
   }
 }
 
