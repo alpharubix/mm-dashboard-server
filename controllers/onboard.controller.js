@@ -1,4 +1,5 @@
 import csvParser from 'csv-parser'
+import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
@@ -79,8 +80,9 @@ export async function onboardCsvParseAndSave(req, res) {
     // 5) Cast & prepare documents
     const toInsert = rows.map((r) => {
       const sno = Number(r.sno)
-      const sanctionLimit = Number(r.sanctionLimit)
-      const limitLiveDate = new Date(r.limitLiveDate)
+      const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
+      const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yyyy', new Date())
+
       if (
         isNaN(sno) ||
         isNaN(sanctionLimit) ||

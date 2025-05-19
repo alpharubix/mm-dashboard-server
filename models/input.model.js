@@ -9,11 +9,11 @@ const inputSchema = new mongoose.Schema(
     bankName: { type: String, required: true },
     ifscCode: { type: String, required: true },
     branch: { type: String, required: true },
-    invoiceNum: { type: String, required: true },
+    invoiceNumber: { type: Number, required: true, unique: true },
     invoiceAmount: { type: Number, required: true },
     invoiceDate: { type: Date, required: true },
-    loanAmountExclCreditBalance: { type: Number, required: true },
-    invoicePdfUrl: { type: String, required: true },
+    loanAmount: { type: Number, required: true },
+    invoicePdfUrl: { type: String, required: false },
   },
   { timestamps: true }
 )
