@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 import { ENV } from '../conf/index.js'
 import { Input } from '../models/input.model.js'
 import { toCamelCase } from '../utils/index.js'
+import { runBatchUpload } from '../utils/upload.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -32,24 +33,21 @@ export async function inputFtpController(req, res) {
   ]
 
   const client = new ftp.Client()
-  // Adjust __dirname if needed based on your project structure
   const inputDir = path.join(__dirname, '../inputfiles')
   const localFile = path.join(inputDir, 'input.csv')
   const rows = []
   let insertedDocs
 
   try {
-    // 1) Create input directory if it doesn't exist
     if (!fs.existsSync(inputDir)) {
       fs.mkdirSync(inputDir)
     }
 
-    // 2) Connect to FTP and download the file
     await client.access({
       host: ENV.FTP_HOST,
       user: ENV.FTP_USER,
       password: ENV.FTP_PASS,
-      secure: false, // Set to true if using FTPS
+      secure: false,
     })
 
     const fileList = await client.list()
@@ -93,7 +91,6 @@ export async function inputFtpController(req, res) {
       })
     }
 
-    // 5) Check for duplicate invoiceNumbers *within* the CSV
     const invoiceNumbers = rows.map((r) => r.invoiceNumber)
     const duplicatesInCSV = invoiceNumbers.filter(
       (item, index) => invoiceNumbers.indexOf(item) !== index
@@ -106,13 +103,11 @@ export async function inputFtpController(req, res) {
     }
     console.log('CSV internal duplicates check passed.')
 
-    // 6) Check which invoices from CSV already exist in the database
     console.log('Checking for existing invoices in DB...')
     const existingDocsInDb = await Input.find({
       invoiceNumber: { $in: invoiceNumbers },
     }).select('invoiceNumber')
 
-    // Create a Set of existing invoice numbers for efficient lookup
     const existingInvoiceNumbersSet = new Set(
       existingDocsInDb.map((doc) => doc.invoiceNumber)
     )
@@ -148,46 +143,73 @@ export async function inputFtpController(req, res) {
             invalidRows.push({
               invoiceNumber: row.invoiceNumber,
               error: 'Invalid data types (amount or date)',
-              originalRow: row, // Optional: store original row for debugging
+              originalRow: row,
             })
-            continue // Skip this row if invalid
+            continue
+          }
+
+          const pdfName = `${row.invoiceNumber}.pdf`
+          const localPdfPath = path.join(inputDir, pdfName)
+          let invoicePdfUrl = null
+
+          if (fileList.some((file) => file.name === pdfName)) {
+            try {
+              await client.downloadTo(localPdfPath, pdfName)
+            } catch (e) {
+              console.error(`PDF download failed for ${pdfName}:`, e.message)
+            }
           }
 
           toInsert.push({
-            ...row, // Keep other fields
-            invoiceAmount, // Use cleaned/parsed values
+            ...row,
+            invoiceAmount,
             loanAmount,
             invoiceDate,
+            invoicePdfUrl,
           })
         } catch (parseError) {
           // Catch potential errors during parse/clean if not handled by isNaN
           invalidRows.push({
             invoiceNumber: row.invoiceNumber,
             error: parseError.message || 'Parsing error',
-            originalRow: row, // Optional: store original row for debugging
+            originalRow: row,
           })
-          continue // Skip this row
+          continue
         }
       }
     }
 
-    // 8) Check if all rows were duplicates or invalid
-    // if (toInsert.length === 0 && rows.length > 0) {
-    //   const message =
-    //     duplicatesInDb.length === rows.length
-    //       ? 'All invoice numbers in CSV already exist in the database.'
-    //       : 'No valid or new invoices found in the CSV to insert.'
+    // ADDED: Batch GCS upload and URL mapping logic
+    let gcsUploadSummary = {
+      message: 'GCS upload not attempted.',
+      uploaded: [],
+      failed: [],
+    }
+    try {
+      gcsUploadSummary = await runBatchUpload()
+    } catch (gcsBatchError) {
+      console.error(
+        'Critical error during GCS batch upload:',
+        gcsBatchError.message
+      )
+      gcsUploadSummary.message = `GCS batch upload failed: ${gcsBatchError.message}`
+      gcsUploadSummary.error = gcsBatchError.message
+    }
 
-    //   return res.status(400).json({
-    //     message: message,
-    //     skippedDuplicates: duplicatesInDb,
-    //     skippedInvalidRows: invalidRows.map((r) => ({
-    //       invoiceNumber: r.invoiceNumber,
-    //       error: r.error,
-    //     })),
-    //   })
-    // }
-    // 8) If all are duplicates in DB, return 200 with info
+    const uploadedPdfMap = new Map()
+    gcsUploadSummary?.uploaded?.forEach((item) =>
+      uploadedPdfMap.set(item.fileName, item.url)
+    )
+    gcsUploadSummary?.failed?.forEach((item) =>
+      uploadedPdfMap.set(item.fileName, `UPLOAD_FAILED: ${item.error}`)
+    )
+
+    for (const doc of toInsert) {
+      const pdfFileName = `${doc.invoiceNumber}.pdf`
+      // doc.invoicePdfUrl =
+      //   uploadedPdfMap.get(pdfFileName) || 'PDF_NOT_PROCESSED_BY_GCS_BATCH'
+      doc.invoicePdfUrl = `https://storage.googleapis.com/${ENV.BUCKET_NAME}/${pdfFileName}`
+    }
     if (toInsert.length === 0) {
       const allDbDuplicates = duplicatesInDb.length === rows.length
       const allInvalid = invalidRows.length === rows.length
@@ -226,7 +248,7 @@ export async function inputFtpController(req, res) {
       insertedDocs = await Input.insertMany(toInsert)
       console.log(`Successfully inserted ${insertedDocs.length} documents.`)
     } else {
-      insertedDocs = [] // Nothing to insert
+      insertedDocs = []
       console.log('No new documents to insert.')
     }
 
@@ -255,7 +277,12 @@ export async function inputFtpController(req, res) {
       skippedInvalidRows: invalidRows.map((r) => ({
         invoiceNumber: r.invoiceNumber,
         error: r.error,
-      })), // Report minimal info for invalid
+      })),
+      insertedDocsDetails: insertedDocs.map((doc) => ({
+        invoiceNumber: doc.invoiceNumber,
+        invoicePdfUrl: doc.invoicePdfUrl,
+      })),
+      gcsUploadSummary: gcsUploadSummary,
     })
   } catch (err) {
     console.error('FTP/Input CSV processing error:', err)
@@ -281,7 +308,6 @@ export async function inputFtpController(req, res) {
       })
     }
     if (client) {
-      // Ensure client object exists before trying to close
       console.log('Closing FTP connection...')
       client.close()
       console.log('FTP connection closed.')
