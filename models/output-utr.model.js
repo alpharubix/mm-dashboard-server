@@ -9,13 +9,19 @@ const outputUTR = new mongoose.Schema(
     bankName: { type: String, required: true },
     ifscCode: { type: String, required: true },
     branch: { type: String, required: true },
-    invoiceNumber: { type: String, required: true, unique: true },
+    invoiceNumber: { type: Number, required: true, unique: true },
     invoiceAmount: { type: Number, required: true },
     invoiceDate: { type: Date, required: true },
     loanAmount: { type: Number, required: true },
-    loanDisbursementDate: { type: Date, required: true },
-    utr: { type: String, required: true },
-    status: { type: String, required: true },
+    loanDisbursementDate: { type: Date },
+    utr: { type: String },
+    status: {
+      type: String,
+      enum: ['completed', 'pending'],
+      default: 'pending',
+      required: true,
+    },
+    invoicePdfUrl: { type: String },
   },
   { timestamps: true }
 )

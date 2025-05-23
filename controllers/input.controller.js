@@ -206,8 +206,6 @@ export async function inputFtpController(req, res) {
 
     for (const doc of toInsert) {
       const pdfFileName = `${doc.invoiceNumber}.pdf`
-      // doc.invoicePdfUrl =
-      //   uploadedPdfMap.get(pdfFileName) || 'PDF_NOT_PROCESSED_BY_GCS_BATCH'
       doc.invoicePdfUrl = `https://storage.googleapis.com/${ENV.BUCKET_NAME}/${pdfFileName}`
     }
     if (toInsert.length === 0) {
@@ -245,8 +243,22 @@ export async function inputFtpController(req, res) {
     // 9) Insert into Mongo - ONLY the ones not found in the DB and are valid
     console.log(`Attempting to insert ${toInsert.length} new invoices...`)
     if (toInsert.length > 0) {
-      insertedDocs = await Input.insertMany(toInsert)
-      console.log(`Successfully inserted ${insertedDocs.length} documents.`)
+      insertedDocs = await Input.insertMany(toInsert, { ordered: false })
+      console.log(
+        `Successfully inserted ${insertedDocs.length} documents into Input collection.`
+      )
+      // Prepare data for OutputUTR (excluding loanDisbursementDate, utr, status as they're not from CSV initially)
+      // const utrDocsToInsert = insertedDocs.map((doc) => {
+      //   const { invoicePdfUrl, _id, __v, ...rest } = doc.toObject()
+      //   return {
+      //     ...rest,
+      //   }
+      // })
+
+      // await OutputUTR.insertMany(utrDocsToInsert, { ordered: false })
+      // console.log(
+      //   `Successfully inserted ${utrDocsToInsert.length} documents into OutputUTR collection.`
+      // )
     } else {
       insertedDocs = []
       console.log('No new documents to insert.')
