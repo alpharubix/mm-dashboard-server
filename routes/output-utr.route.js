@@ -1,10 +1,9 @@
 import express from 'express'
-import {
-  getAllOutputUtrData,
-  getOutputUtrData,
-  outputUtrCsvParseAndSave,
-  outputUtrFtpController,
-} from '../controllers/output-utr.controller.js'
+
+import { outputUtrFtpController } from '../controllers/invoice-utr/fetch-from-ftp.js'
+import { getAllOutputUtrData } from '../controllers/invoice-utr/get-all-utr-data.js'
+import { getOutputUtrData } from '../controllers/invoice-utr/get-utr-data.js'
+import { outputUtrCsvParseAndSave } from '../controllers/invoice-utr/upload-csv-to-db-and-ftp.js'
 import upload from '../middlewares/multer.js'
 
 const router = express.Router()
