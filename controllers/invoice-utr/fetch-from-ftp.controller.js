@@ -309,6 +309,24 @@ export async function outputUtrFtpController(req, res) {
         else console.log('Local file deleted.')
       })
     }
+
+    // Clean up downloaded PDF files
+    if (rows.length > 0) {
+      console.log('Cleaning up downloaded PDF files...')
+      for (const row of rows) {
+        const pdfName = `${row.invoiceNumber}.pdf`
+        const localPdfPath = path.join(inputDir, pdfName)
+
+        if (fs.existsSync(localPdfPath)) {
+          fs.unlink(localPdfPath, (unlinkErr) => {
+            if (unlinkErr)
+              console.error(`Error deleting ${pdfName}:`, unlinkErr)
+            else console.log(`PDF file deleted: ${pdfName}`)
+          })
+        }
+      }
+    }
+
     if (client) {
       console.log('Closing FTP connection...')
       client.close()

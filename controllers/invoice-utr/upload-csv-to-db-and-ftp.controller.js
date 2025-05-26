@@ -4,7 +4,7 @@ import fs from 'fs'
 import { unlink } from 'fs/promises'
 
 import { OutputUTR } from '../../models/output-utr.model.js'
-import { toCamelCase } from '../../utils/index.js'
+import { toCamelCase, uploadFileToFtp } from '../../utils/index.js'
 
 export async function outputUtrCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -29,7 +29,6 @@ export async function outputUtrCsvParseAndSave(req, res) {
   }
   const filePath = req.file.path
   const rows = []
-  let insertedDocs // To store the inserted documents if successful
 
   try {
     // 1) Parse CSV into rows[]
@@ -73,43 +72,8 @@ export async function outputUtrCsvParseAndSave(req, res) {
       })
     }
 
-    // 5) Cast & insert
-    // const toInsert = rows.map((r) => {
-    //   // Remove commas before converting to number
-    //   const invoiceAmount = Number(r.invoiceAmount.replace(/,/g, ''))
-    //   const loanAmount = Number(r.loanAmount.replace(/,/g, ''))
-
-    //   // Parse dates
-    //   const invoiceDate = parse(r.invoiceDate, 'dd-MM-yyyy', new Date())
-    //   const loanDisbursementDate = parse(
-    //     r.loanDisbursementDate,
-    //     'dd-MM-yyyy',
-    //     new Date()
-    //   )
-
-    //   // Validation
-    //   if (
-    //     isNaN(invoiceAmount) ||
-    //     isNaN(loanAmount) ||
-    //     isNaN(invoiceDate.getTime()) ||
-    //     isNaN(loanDisbursementDate.getTime())
-    //   ) {
-    //     throw new Error('Invalid number or date in CSV')
-    //   }
-
-    //   return {
-    //     ...r,
-    //     invoiceAmount,
-    //     loanAmount,
-    //     invoiceDate,
-    //     loanDisbursementDate,
-    //     utr: r.utr,
-    //     status: r.status,
-    //   }
-    // })
-
     // 6) FTP upload
-    // await uploadFileToFtp(filePath)
+    await uploadFileToFtp(filePath)
 
     // 5) Cast & update
     const updateOps = []
@@ -118,33 +82,33 @@ export async function outputUtrCsvParseAndSave(req, res) {
       const invoiceAmount = Number(r.invoiceAmount.replace(/,/g, ''))
       const loanAmount = Number(r.loanAmount.replace(/,/g, ''))
       const invoiceDate = parse(r.invoiceDate, 'dd-MM-yyyy', new Date())
-      const loanDisbursementDate = parse(
-        r.loanDisbursementDate,
-        'dd-MM-yyyy',
-        new Date()
-      )
 
       if (
         isNaN(invoiceAmount) ||
         isNaN(loanAmount) ||
-        isNaN(invoiceDate.getTime()) ||
-        isNaN(loanDisbursementDate.getTime())
+        isNaN(invoiceDate.getTime())
       ) {
-        throw new Error(
-          `Invalid number or date in CSV for invoice ${r.invoiceNumber}`
-        )
+        throw new Error(`Invalid data in invoice ${r.invoiceNumber}`)
       }
+
+      let loanDisbursementDate = null
+      if (r.loanDisbursementDate && r.loanDisbursementDate !== 'N/A') {
+        const parsed = parse(r.loanDisbursementDate, 'dd-MM-yyyy', new Date())
+        if (!isNaN(parsed.getTime())) {
+          loanDisbursementDate = parsed
+        }
+      }
+
+      const updateFields = {}
+      if (r.utr && r.utr !== 'N/A') updateFields.utr = r.utr
+      if (r.status && r.status !== 'N/A') updateFields.status = r.status
+      if (loanDisbursementDate)
+        updateFields.loanDisbursementDate = loanDisbursementDate
 
       updateOps.push({
         updateOne: {
           filter: { invoiceNumber: r.invoiceNumber },
-          update: {
-            $set: {
-              utr: r.utr,
-              status: r.status,
-              loanDisbursementDate,
-            },
-          },
+          update: { $set: updateFields },
         },
       })
     }
