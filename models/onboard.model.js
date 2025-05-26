@@ -7,7 +7,7 @@ const onboardSchema = new mongoose.Schema(
     distributorCode: { type: String, required: true, unique: true },
     lender: { type: String, required: true },
     sanctionLimit: { type: Number, required: true },
-    limitLiveDate: { type: String, required: true },
+    limitLiveDate: { type: Date, required: true },
   },
   { timestamps: true }
 )

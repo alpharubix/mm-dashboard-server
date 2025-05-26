@@ -4,20 +4,16 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { ENV } from '../conf/index.js'
-import { Input } from '../models/input.model.js'
-import { toCamelCase } from '../utils/index.js'
-import { runBatchUpload } from '../utils/upload.js'
+
+import { ENV } from '../../conf/index.js'
+import { OutputUTR } from '../../models/output-utr.model.js'
+import { cleanNumber, toCamelCase } from '../../utils/index.js'
+import { runBatchUpload } from '../../utils/upload.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const cleanNumber = (val) => {
-  if (!val) return NaN
-  return Number(String(val).replace(/,/g, '').trim())
-}
-
-export async function inputFtpController(req, res) {
+export async function outputUtrFtpController(req, res) {
   const requiredFields = [
     'companyName',
     'distributorCode',
@@ -33,7 +29,7 @@ export async function inputFtpController(req, res) {
   ]
 
   const client = new ftp.Client()
-  const inputDir = path.join(__dirname, '../inputfiles')
+  const inputDir = path.join(__dirname, '../../inputfiles')
   const localFile = path.join(inputDir, 'input.csv')
   const rows = []
   let insertedDocs
@@ -104,7 +100,7 @@ export async function inputFtpController(req, res) {
     console.log('CSV internal duplicates check passed.')
 
     console.log('Checking for existing invoices in DB...')
-    const existingDocsInDb = await Input.find({
+    const existingDocsInDb = await OutputUTR.find({
       invoiceNumber: { $in: invoiceNumbers },
     }).select('invoiceNumber')
 
@@ -242,23 +238,17 @@ export async function inputFtpController(req, res) {
 
     // 9) Insert into Mongo - ONLY the ones not found in the DB and are valid
     console.log(`Attempting to insert ${toInsert.length} new invoices...`)
-    if (toInsert.length > 0) {
-      insertedDocs = await Input.insertMany(toInsert, { ordered: false })
-      console.log(
-        `Successfully inserted ${insertedDocs.length} documents into Input collection.`
-      )
-      // Prepare data for OutputUTR (excluding loanDisbursementDate, utr, status as they're not from CSV initially)
-      // const utrDocsToInsert = insertedDocs.map((doc) => {
-      //   const { invoicePdfUrl, _id, __v, ...rest } = doc.toObject()
-      //   return {
-      //     ...rest,
-      //   }
-      // })
+    console.log({ toInsert })
+    for (const doc of toInsert) {
+      const pdfFileName = `${doc.invoiceNumber}.pdf`
+      doc.invoicePdfUrl = `https://storage.googleapis.com/${ENV.BUCKET_NAME}/${pdfFileName}`
+    }
 
-      // await OutputUTR.insertMany(utrDocsToInsert, { ordered: false })
-      // console.log(
-      //   `Successfully inserted ${utrDocsToInsert.length} documents into OutputUTR collection.`
-      // )
+    if (toInsert.length > 0) {
+      insertedDocs = await OutputUTR.insertMany(toInsert, { ordered: false })
+      console.log(
+        `Successfully inserted ${insertedDocs.length} documents into OutputUTR collection.`
+      )
     } else {
       insertedDocs = []
       console.log('No new documents to insert.')
@@ -319,20 +309,28 @@ export async function inputFtpController(req, res) {
         else console.log('Local file deleted.')
       })
     }
+
+    // Clean up downloaded PDF files
+    if (rows.length > 0) {
+      console.log('Cleaning up downloaded PDF files...')
+      for (const row of rows) {
+        const pdfName = `${row.invoiceNumber}.pdf`
+        const localPdfPath = path.join(inputDir, pdfName)
+
+        if (fs.existsSync(localPdfPath)) {
+          fs.unlink(localPdfPath, (unlinkErr) => {
+            if (unlinkErr)
+              console.error(`Error deleting ${pdfName}:`, unlinkErr)
+            else console.log(`PDF file deleted: ${pdfName}`)
+          })
+        }
+      }
+    }
+
     if (client) {
       console.log('Closing FTP connection...')
       client.close()
       console.log('FTP connection closed.')
     }
-  }
-}
-
-export const getInputData = async (req, res) => {
-  try {
-    const data = await Input.find()
-    res.status(200).json({ message: 'Fetched input data successfully', data })
-  } catch (error) {
-    console.error('Error fetching input data:', error)
-    res.status(500).json({ message: 'Internal server error' })
   }
 }

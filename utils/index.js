@@ -28,3 +28,8 @@ export async function uploadFileToFtp(filePath) {
     }
   }
 }
+
+export const cleanNumber = (val) => {
+  if (!val) return NaN
+  return Number(String(val).replace(/,/g, '').trim())
+}

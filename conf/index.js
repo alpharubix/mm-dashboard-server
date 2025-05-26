@@ -10,4 +10,12 @@ export const ENV = {
   FTP_HOST: String(process.env.FTP_HOST),
   FTP_USER: String(process.env.FTP_USER),
   FTP_PASS: String(process.env.FTP_PASS),
+  CLIENT_ID: String(process.env.CLIENT_ID),
+  CLIENT_X509_CERT_URL: String(process.env.CLIENT_X509_CERT_URL),
+  PRIVATE_KEY_ID: String(process.env.PRIVATE_KEY_ID),
+  PROJECT_ID: String(process.env.PROJECT_ID),
+  DB_NAME: String(process.env.DB_NAME),
+  PRIVATE_KEY: String(process.env.PRIVATE_KEY),
+  CLIENT_EMAIL: String(process.env.CLIENT_EMAIL),
+  BUCKET_NAME: String(process.env.BUCKET_NAME),
 }
