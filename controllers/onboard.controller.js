@@ -121,6 +121,8 @@ export async function onboardCsvParseAndSave(req, res) {
 }
 
 export const getOnboardData = async (req, res) => {
+  const user = req.user
+  if(user.role === 'superAdmin' || user.role === 'admin'){
   const page = Number(req.query.page || 1)
   const limit = Number(req.query.limit || 10)
   const companyName = String(req.query.companyName || '')
@@ -136,7 +138,6 @@ export const getOnboardData = async (req, res) => {
       OnboardNotification.find(filter).skip(skip).limit(Number(limit)),
       OnboardNotification.countDocuments(filter),
     ])
-
     res.status(200).json({
       data,
       skip,
@@ -146,8 +147,22 @@ export const getOnboardData = async (req, res) => {
       totalPages: Math.ceil(total / Number(limit)),
       total,
     })
-  } catch (err) {
+  }
+   catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
   }
+}else{
+  const companyId = user.companyId 
+  try{
+    const data = await OnboardNotification.find({distributorCode:companyId},{distributorCode:1,sanctionLimit:1,limitLiveDate:1,anchor:1})
+    if(data.length === 0){
+      res.status(204).json({'message':"No content"})
+    }
+    res.status(200).json(data)
+  }
+  catch(err){
+   res.status(500).json({"message":"internel server issue"})
+  }
+}
 }

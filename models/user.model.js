@@ -6,14 +6,18 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: {
       type: String,
-      enum: ['admin', 'viewer'],
-      default: 'viewer',
+      enum: ['superAdmin', 'admin', 'viewer'],
       required: true,
     },
+    companyId:{
+      type:String,
+      required:true,
+      unique:true
+    }
   },
   {
-    timestamps: true,
-  }
+  timestamps: true,
+  },{versionKey: false}
 )
 
 export const User = mongoose.model('User', UserSchema)
