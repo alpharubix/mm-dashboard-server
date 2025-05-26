@@ -22,7 +22,14 @@ export const getOutputUtrData = async (req, res) => {
       filter.companyName = new RegExp(companyName, 'i')
     }
     if (invoiceNumber) {
-      filter.invoiceNumber = new RegExp(invoiceNumber, 'i')
+      // Convert number field to string and do partial matching
+      filter.$expr = {
+        $regexMatch: {
+          input: { $toString: '$invoiceNumber' },
+          regex: invoiceNumber,
+          options: 'i',
+        },
+      }
     }
     if (distributorCode) {
       filter.distributorCode = new RegExp(distributorCode, 'i')
