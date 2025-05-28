@@ -3,6 +3,8 @@ import { parse } from 'date-fns'
 import { OutputUTR } from '../../models/output-utr.model.js'
 
 export const getOutputUtrData = async (req, res) => {
+  const user = req.user
+  if(user.role === 'superAdmin'){
   try {
     const {
       companyName,
@@ -78,4 +80,7 @@ export const getOutputUtrData = async (req, res) => {
     console.error('Error fetching OutputUTR data:', error)
     res.status(500).json({ message: 'Internal server error' })
   }
+}else{
+  res.status(401).json({'message':"Forbidden: Insufficient role"})
+}
 }

@@ -133,6 +133,8 @@ export async function outputLimitCsvParseAndSave(req, res) {
 }
 
 export const getOutputLimitData = async (req, res) => {
+  const user = req.user
+  if(user.role === 'superAdmin'||user.role === 'admin'){
   const page = Number(req.query.page || 1)
   const limit = Number(req.query.limit || 10)
   const companyName = String(req.query.companyName || '')
@@ -160,4 +162,16 @@ export const getOutputLimitData = async (req, res) => {
     console.error('Error in getOutputLimitData:', err)
     res.status(500).json({ message: 'Server error' })
   }
+}else{
+    try {
+      const data = await OutputLimit.find({distributorCode:user.companyId},{distributorCode:1,utilisedLimit:1,availableLimit:1,overdue:1})
+      if(data.length === 0){
+        res.status(204).json({"message":"No content"})
+      }
+      res.status(200).json({data})
+    } catch (error) {
+      
+    }
+
+}
 }
