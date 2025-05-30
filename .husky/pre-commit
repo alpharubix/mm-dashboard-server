@@ -1,0 +1,13 @@
+#npm test
+
+echo '
+💅🛠️ Formatting and testing project before committing...
+'
+
+npm run check-format ||
+(
+    echo '
+    Prettier Check Failed. ❌
+    Run npm run format, add changes and try commit again.';
+    false;
+)

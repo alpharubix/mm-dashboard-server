@@ -9,15 +9,16 @@ const UserSchema = new mongoose.Schema(
       enum: ['superAdmin', 'admin', 'viewer'],
       required: true,
     },
-    companyId:{
-      type:String,
-      required:true,
-      unique:true
-    }
+    companyId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
   },
   {
-  timestamps: true,
-  },{versionKey: false}
+    timestamps: true,
+  },
+  { versionKey: false }
 )
 
 export const User = mongoose.model('User', UserSchema)
