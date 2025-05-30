@@ -15,6 +15,8 @@ const outputUTR = new mongoose.Schema(
     loanAmount: { type: Number, required: true },
     loanDisbursementDate: { type: Date, default: null },
     utr: { type: String, default: 'N/A' },
+    anchor: { type: String, required: true, enum: ['CKPL', 'HWC', 'OTHERS'] },
+    anchorType: { type: String, required: true, enum: ['open', 'close'] },
     status: {
       type: String,
       enum: ['completed', 'pending'],

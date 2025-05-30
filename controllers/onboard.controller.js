@@ -121,33 +121,54 @@ export async function onboardCsvParseAndSave(req, res) {
 }
 
 export const getOnboardData = async (req, res) => {
-  const page = Number(req.query.page || 1)
-  const limit = Number(req.query.limit || 10)
-  const companyName = String(req.query.companyName || '')
-  const distributorCode = String(req.query.distributorCode || '')
+  const user = req.user
+  if (user.role === 'superAdmin' || user.role == 'admin') {
+    const page = Number(req.query.page || 1)
+    const limit = Number(req.query.limit || 10)
+    const companyName = String(req.query.companyName || '')
+    const distributorCode = String(req.query.distributorCode || '')
 
-  try {
-    const filter = {}
-    if (companyName) filter.companyName = new RegExp(companyName, 'i')
-    if (distributorCode)
-      filter.distributorCode = new RegExp(distributorCode, 'i')
-    const skip = (Number(page) - 1) * Number(limit)
-    const [data, total] = await Promise.all([
-      OnboardNotification.find(filter).skip(skip).limit(Number(limit)),
-      OnboardNotification.countDocuments(filter),
-    ])
-
-    res.status(200).json({
-      data,
-      skip,
-      companyName,
-      distributorCode,
-      page: Number(page),
-      totalPages: Math.ceil(total / Number(limit)),
-      total,
-    })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: 'Server error' })
+    try {
+      const filter = {}
+      if (user.role === 'admin') {
+        //anchor level view data control
+        filter.anchor = user.companyId
+      }
+      if (companyName) filter.companyName = new RegExp(companyName, 'i')
+      if (distributorCode)
+        filter.distributorCode = new RegExp(distributorCode, 'i')
+      const skip = (Number(page) - 1) * Number(limit)
+      console.log('This is the filtered monogo obj', filter)
+      const [data, total] = await Promise.all([
+        OnboardNotification.find(filter).skip(skip).limit(Number(limit)),
+        OnboardNotification.countDocuments(filter),
+      ])
+      res.status(200).json({
+        data,
+        skip,
+        companyName,
+        distributorCode,
+        page: Number(page),
+        totalPages: Math.ceil(total / Number(limit)),
+        total,
+      })
+    } catch (err) {
+      console.error(err)
+      res.status(500).json({ message: 'Server error' })
+    }
+  } else {
+    const companyId = user.companyId
+    try {
+      const data = await OnboardNotification.find(
+        { distributorCode: companyId },
+        { distributorCode: 1, sanctionLimit: 1, limitLiveDate: 1, anchor: 1 }
+      )
+      if (data.length === 0) {
+        res.status(204).json({ message: 'No content' })
+      }
+      res.status(200).json(data)
+    } catch (err) {
+      res.status(500).json({ message: 'internel server issue' })
+    }
   }
 }

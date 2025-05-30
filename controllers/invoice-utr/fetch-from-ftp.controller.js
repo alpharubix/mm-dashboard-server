@@ -14,6 +14,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 export async function outputUtrFtpController(req, res) {
+  const user = req.user
+  if(user.role === 'superAdmin'){
   const requiredFields = [
     'companyName',
     'distributorCode',
@@ -333,4 +335,7 @@ export async function outputUtrFtpController(req, res) {
       console.log('FTP connection closed.')
     }
   }
+}else{
+  res.status(401).json({'message':"Forbidden: Insufficient role"})
+}
 }
