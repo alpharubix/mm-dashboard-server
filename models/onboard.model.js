@@ -8,10 +8,11 @@ const onboardSchema = new mongoose.Schema(
     lender: { type: String, required: true },
     sanctionLimit: { type: Number, required: true },
     limitLiveDate: { type: Date, required: true },
-    anchor:{type:String,required:true,enum: ['CKPL', 'HWC']},
+    anchor: { type: String, required: true, enum: ['CKPL', 'HWC', 'OTHERS'] },
+    anchorType: { type: String, required: true, enum: ['openCf', 'close'] },
   },
-  {versionKey:false},
-  { timestamps: true },
+  { versionKey: false },
+  { timestamps: true }
 )
 
 export const OnboardNotification = mongoose.model(
