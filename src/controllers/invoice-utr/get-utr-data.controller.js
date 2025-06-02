@@ -4,7 +4,7 @@ import { OutputUTR } from '../../models/output-utr.model.js'
 
 export const getOutputUtrData = async (req, res) => {
   const user = req.user
-  if (user.role === 'superAdmin') {
+  if (user.role === 'superAdmin' || user.role === 'admin') {
     try {
       const {
         companyName,
@@ -19,6 +19,10 @@ export const getOutputUtrData = async (req, res) => {
       } = req.query
 
       const filter = {}
+
+      if (user.role === 'admin') {
+        filter.anchor = user.companyId
+      }
 
       if (companyName) {
         filter.companyName = new RegExp(companyName, 'i')
@@ -81,6 +85,27 @@ export const getOutputUtrData = async (req, res) => {
       res.status(500).json({ message: 'Internal server error' })
     }
   } else {
-    res.status(401).json({ message: 'Forbidden: Insufficient role' })
+    try {
+      const data = await OutputUTR.find(
+        { distributorCode: user.companyId },
+        {
+          distributorCode: 1,
+          invoiceNumber: 1,
+          invoiceAmount: 1,
+          invoiceDate: 1,
+          loanAmount: 1,
+          loanDisbursementDate: 1,
+          utr: 1,
+          status: 1,
+        }
+      )
+      if (data.length === 0) {
+        res.status(204)
+      }
+      res.status(200).json({ message: data })
+    } catch (err) {
+      console.log('Error getting the data from the database')
+      res.status(500).json({ message: 'Internal server error' })
+    }
   }
 }
