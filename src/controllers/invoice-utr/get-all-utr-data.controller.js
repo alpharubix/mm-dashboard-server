@@ -16,25 +16,6 @@ export const getAllOutputUtrData = async (req, res) => {
       res.status(500).json({ message: 'Internal server error' })
     }
   } else {
-    try {
-      const companyId = user.companyId
-      const data = await OutputUTR.find(
-        { distributorCode: companyId },
-        {
-          distributorCode: 1,
-          invoiceNumber: 1,
-          loanAmount: 1,
-          loanDisbursementDate: 1,
-          utr: 1,
-          status: 1,
-        }
-      )
-      if (data.length === 0) {
-        res.status(204)
-      }
-      res.status(200).json({ data: data })
-    } catch (error) {
-      res.status(500).json({ message: 'Internal Server Error' })
-    }
+    res.status(401).json({ message: 'unauthorized' })
   }
 }
