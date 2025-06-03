@@ -8,8 +8,8 @@ const onboardSchema = new mongoose.Schema(
     lender: { type: String, required: true },
     sanctionLimit: { type: Number, required: true },
     limitLiveDate: { type: Date, required: true },
-    anchor: { type: String, required: true, enum: ['CKPL', 'HWC', 'OTHERS'] },
-    anchorType: { type: String, required: true, enum: ['openCf', 'close'] },
+    anchor: { type: String, required: true, enum: ['ckpl', 'hwc', 'others'] },
+    fundingType: { type: String, required: true, enum: ['open', 'closed'] },
   },
   { versionKey: false },
   { timestamps: true }

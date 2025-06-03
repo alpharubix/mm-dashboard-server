@@ -81,7 +81,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
     for (const r of rows) {
       const invoiceAmount = Number(r.invoiceAmount.replace(/,/g, ''))
       const loanAmount = Number(r.loanAmount.replace(/,/g, ''))
-      const invoiceDate = parse(r.invoiceDate, 'dd-MM-yyyy', new Date())
+      const invoiceDate = parse(r.invoiceDate, 'dd-MM-yy', new Date())
 
       if (
         isNaN(invoiceAmount) ||
@@ -93,7 +93,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
 
       let loanDisbursementDate = null
       if (r.loanDisbursementDate && r.loanDisbursementDate !== 'N/A') {
-        const parsed = parse(r.loanDisbursementDate, 'dd-MM-yyyy', new Date())
+        const parsed = parse(r.loanDisbursementDate, 'dd-MM-yy', new Date())
         if (!isNaN(parsed.getTime())) {
           loanDisbursementDate = parsed
         }

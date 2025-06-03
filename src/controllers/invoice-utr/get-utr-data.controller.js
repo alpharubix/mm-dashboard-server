@@ -51,12 +51,12 @@ export const getOutputUtrData = async (req, res) => {
         const dateFilter = {}
 
         if (fromDate) {
-          const from = parse(fromDate, 'dd-MM-yyyy', new Date())
+          const from = parse(fromDate, 'dd-MM-yy', new Date())
           dateFilter.$gte = from
         }
 
         if (toDate) {
-          const to = parse(toDate, 'dd-MM-yyyy', new Date())
+          const to = parse(toDate, 'dd-MM-yy', new Date())
           to.setHours(23, 59, 59, 999)
           dateFilter.$lte = to
         }

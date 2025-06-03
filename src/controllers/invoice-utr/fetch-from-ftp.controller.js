@@ -129,7 +129,7 @@ export async function outputUtrFtpController(req, res) {
             const invoiceAmount = cleanNumber(row.invoiceAmount)
             const loanAmount = cleanNumber(row.loanAmount)
             // Ensure parse result is valid
-            const invoiceDate = parse(row.invoiceDate, 'dd-MM-yyyy', new Date())
+            const invoiceDate = parse(row.invoiceDate, 'dd-MM-yy', new Date())
 
             // Check for invalid data types *after* cleaning/parsing
             if (

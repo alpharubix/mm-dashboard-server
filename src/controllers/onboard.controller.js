@@ -81,7 +81,7 @@ export async function onboardCsvParseAndSave(req, res) {
     const toInsert = rows.map((r) => {
       const sno = Number(r.sno)
       const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
-      const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yyyy', new Date())
+      const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yy', new Date())
 
       if (
         isNaN(sno) ||

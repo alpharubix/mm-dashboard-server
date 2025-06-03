@@ -13,9 +13,13 @@ const outputLimit = new mongoose.Schema(
     utilisedLimit: { type: Number, required: true },
     availableLimit: { type: Number, required: true },
     overdue: { type: Number, required: true },
-    billingStatus: { type: String, required: true },
-    anchor: { type: String, required: true, enum: ['CKPL', 'HWC', 'OTHERS'] },
-    anchorType: { type: String, required: true, enum: ['open', 'close'] },
+    billingStatus: {
+      type: String,
+      required: true,
+      enum: ['positive', 'negative'],
+    },
+    anchor: { type: String, required: true, enum: ['ckpl', 'hwc', 'others'] },
+    fundingType: { type: String, required: true, enum: ['open', 'closed'] },
   },
   { timestamps: true }
 )
