@@ -1,11 +1,19 @@
 import { User } from '../models/user.model.js'
 
 export const getUsers = async (req, res) => {
-  const data = await User.find().select('-password')
-  res.json(data)
+  const user = req.user
+  if (user.role === 'superAdmin') {
+    const data = await User.find().select('-password')
+    res.status(200).json(data)
+  }
+  res.status(401).json({ message: 'Forbidden Insufficent role' })
 }
 
 export const updateUserRole = async (req, res) => {
+  const user = req.user
+  if (user.role !== 'superAdmin') {
+    res.status(401).json({ message: 'Forbidden Insufficient role' })
+  }
   const { id } = req.params
   const { role } = req.body
 
