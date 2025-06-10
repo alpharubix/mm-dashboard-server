@@ -85,27 +85,6 @@ export const getOutputUtrData = async (req, res) => {
       res.status(500).json({ message: 'Internal server error' })
     }
   } else {
-    try {
-      const data = await OutputUTR.find(
-        { distributorCode: user.companyId },
-        {
-          distributorCode: 1,
-          invoiceNumber: 1,
-          invoiceAmount: 1,
-          invoiceDate: 1,
-          loanAmount: 1,
-          loanDisbursementDate: 1,
-          utr: 1,
-          status: 1,
-        }
-      )
-      if (data.length === 0) {
-        res.status(204)
-      }
-      res.status(200).json({ message: data })
-    } catch (err) {
-      console.log('Error getting the data from the database')
-      res.status(500).json({ message: 'Internal server error' })
-    }
+    res.status(401).json({ message: 'Forbidden Insufficient role' })
   }
 }

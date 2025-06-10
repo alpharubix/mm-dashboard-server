@@ -157,18 +157,6 @@ export const getOnboardData = async (req, res) => {
       res.status(500).json({ message: 'Server error' })
     }
   } else {
-    const companyId = user.companyId
-    try {
-      const data = await OnboardNotification.find(
-        { distributorCode: companyId },
-        { distributorCode: 1, sanctionLimit: 1, limitLiveDate: 1, anchor: 1 }
-      )
-      if (data.length === 0) {
-        res.status(204).json({ message: 'No content' })
-      }
-      res.status(200).json(data)
-    } catch (err) {
-      res.status(500).json({ message: 'internel server issue' })
-    }
+   res.status(401).json({message:"Forbidden Insufficent role"})
   }
 }
