@@ -168,15 +168,6 @@ export const getOutputLimitData = async (req, res) => {
       res.status(500).json({ message: 'Server error' })
     }
   } else {
-    try {
-      const data = await OutputLimit.find(
-        { distributorCode: user.companyId },
-        { distributorCode: 1, utilisedLimit: 1, availableLimit: 1, overdue: 1 }
-      )
-      if (data.length === 0) {
-        res.status(204).json({ message: 'No content' })
-      }
-      res.status(200).json({ data })
-    } catch (error) {}
+    res.status(401).json({message:"Forbidden Insuffiecent role"})
+    }
   }
-}
