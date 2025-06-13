@@ -1,4 +1,4 @@
-export function isAllowded(req, res, next) {
+export function isSuperAdmin(req, res, next) {
   //get the role from the req object and check
   const user = req.user
   if (user.role === 'superAdmin') {

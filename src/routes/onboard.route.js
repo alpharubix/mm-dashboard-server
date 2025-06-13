@@ -4,7 +4,7 @@ import {
   onboardCsvParseAndSave,
 } from '../controllers/onboard.controller.js'
 import { validateUser } from '../middlewares/auth.js'
-import { isAllowded } from '../middlewares/fileUploadBlocker.js'
+import { isSuperAdmin } from '../middlewares/fileUploadBlocker.js'
 import upload from '../middlewares/multer.js'
 
 const router = express.Router()
@@ -12,7 +12,7 @@ const router = express.Router()
 router.post(
   '/onboard-upload',
   validateUser,
-  isAllowded,
+  isSuperAdmin,
   upload().single('csvfile'),
   onboardCsvParseAndSave
 )

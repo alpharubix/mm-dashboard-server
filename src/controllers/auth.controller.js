@@ -18,9 +18,10 @@ export const register = async (req, res) => {
     try {
       const userName = getUserName(companyName)
       const existing = await User.findOne({ userName })
-      if (existing)
+      if (existing) {
         //check if the username is already taken or not
         return res.status(409).json({ message: 'username already registered' })
+      }
       const password = generateCompanyPassword(companyName)
       const hashed = await bcrypt.hash(password, 10)
       if (role === 'admin') {
@@ -34,7 +35,7 @@ export const register = async (req, res) => {
           companyId,
           apiKey,
         })
-        res.status(201).json({
+        return res.status(201).json({
           data: { companyName, userName, password, apiKey },
         })
       }
@@ -45,7 +46,9 @@ export const register = async (req, res) => {
         role,
         companyId,
       })
-      res.status(201).json({ data: { userName, password } })
+      return res.status(201).json({
+        data: { companyName, userName, password },
+      })
     } catch (err) {
       res
         .status(500)
