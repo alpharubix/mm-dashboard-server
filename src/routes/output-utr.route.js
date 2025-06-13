@@ -5,20 +5,30 @@ import { getAllOutputUtrData } from '../controllers/invoice-utr/get-all-utr-data
 import { getOutputUtrData } from '../controllers/invoice-utr/get-utr-data.controller.js'
 import { outputUtrCsvParseAndSave } from '../controllers/invoice-utr/upload-csv-to-db-and-ftp.controller.js'
 import { validateUser } from '../middlewares/auth.js'
-import { isAllowded } from '../middlewares/fileUploadBlocker.js'
+import { isSuperAdmin } from '../middlewares/fileUploadBlocker.js'
 import upload from '../middlewares/multer.js'
 
 const router = express.Router()
 
-router.get('/output-utr-ftp-data', validateUser, outputUtrFtpController)
+// router.get('/output-utr-ftp-data', validateUser, outputUtrFtpController)
+
+// POST json - anchor
+router.post('/invoice-input', validateUser)
+
+// POST pdf - anchor
+router.post('/invoice-pdf', validateUser)
+
+// POST csv - MM
 router.post(
-  '/output-utr-upload',
+  '/invoice-utr-upload',
   validateUser,
-  isAllowded,
+  isSuperAdmin,
   upload().single('csvfile'),
   outputUtrCsvParseAndSave
 )
-router.get('/output-utr', validateUser, getOutputUtrData)
-router.get('/output-utr-all', validateUser, getAllOutputUtrData)
+
+// GET json - MM & anchor
+router.get('/invoice-input', validateUser, getOutputUtrData)
+// router.get('/output-utr-all', validateUser, getAllOutputUtrData)
 
 export default router

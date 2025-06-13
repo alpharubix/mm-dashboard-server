@@ -168,6 +168,6 @@ export const getOutputLimitData = async (req, res) => {
       res.status(500).json({ message: 'Server error' })
     }
   } else {
-    res.status(401).json({message:"Forbidden Insuffiecent role"})
-    }
+    res.status(401).json({ message: 'Forbidden Insuffiecent role' })
   }
+}

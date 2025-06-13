@@ -4,18 +4,18 @@ import {
   outputLimitCsvParseAndSave,
 } from '../controllers/output-limit.controller.js'
 import { validateUser } from '../middlewares/auth.js'
-import { isAllowded } from '../middlewares/fileUploadBlocker.js'
+import { isSuperAdmin } from '../middlewares/fileUploadBlocker.js'
 import upload from '../middlewares/multer.js'
 
 const router = express.Router()
 
 router.post(
-  '/output-limit-upload',
+  '/credit-limit-upload',
   validateUser,
-  isAllowded,
+  isSuperAdmin,
   upload().single('csvfile'),
   outputLimitCsvParseAndSave
 )
-router.get('/output-limit', validateUser, getOutputLimitData)
+router.get('/credit-limit', validateUser, getOutputLimitData)
 
 export default router
