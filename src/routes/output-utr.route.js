@@ -7,15 +7,17 @@ import { outputUtrCsvParseAndSave } from '../controllers/invoice-utr/upload-csv-
 import { validateUser } from '../middlewares/auth.js'
 import { isSuperAdmin } from '../middlewares/fileUploadBlocker.js'
 import upload from '../middlewares/multer.js'
+import { invoiceInput } from '../controllers/invoice-utr/invoice-input.controller.js'
 
 const router = express.Router()
 
 // router.get('/output-utr-ftp-data', validateUser, outputUtrFtpController)
 
 // POST json - anchor
-router.post('/invoice-input', validateUser)
+router.post('/invoice-input', validateUser, invoiceInput)
 
 // POST pdf - anchor
+// Pending for PDF upload.
 router.post('/invoice-pdf', validateUser)
 
 // POST csv - MM
