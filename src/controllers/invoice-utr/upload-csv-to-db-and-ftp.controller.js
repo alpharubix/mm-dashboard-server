@@ -92,7 +92,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
       }
 
       let loanDisbursementDate = null
-      if (r.loanDisbursementDate && r.loanDisbursementDate !== 'N/A') {
+      if (r.loanDisbursementDate && r.loanDisbursementDate !== 'NA') {
         const parsed = parse(r.loanDisbursementDate, 'dd-MM-yy', new Date())
         if (!isNaN(parsed.getTime())) {
           loanDisbursementDate = parsed
@@ -100,8 +100,8 @@ export async function outputUtrCsvParseAndSave(req, res) {
       }
 
       const updateFields = {}
-      if (r.utr && r.utr !== 'N/A') updateFields.utr = r.utr
-      if (r.status && r.status !== 'N/A') updateFields.status = r.status
+      if (r.utr && r.utr !== 'NA') updateFields.utr = r.utr
+      if (r.status && r.status !== 'NA') updateFields.status = r.status
       if (loanDisbursementDate)
         updateFields.loanDisbursementDate = loanDisbursementDate
 

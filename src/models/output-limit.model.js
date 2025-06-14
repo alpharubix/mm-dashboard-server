@@ -18,8 +18,8 @@ const outputLimit = new mongoose.Schema(
       required: true,
       enum: ['positive', 'negative'],
     },
-    anchor: { type: String, required: true, enum: ['ckpl', 'hwc', 'others'] },
-    fundingType: { type: String, required: true, enum: ['open', 'closed'] },
+    anchorId: { type: String, required: true },
+    fundingType: { type: String, required: true, enum: ['open', 'close'] },
   },
   { timestamps: true }
 )
