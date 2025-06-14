@@ -17,6 +17,7 @@ const router = express.Router()
 router.post('/invoice-input', validateUser, invoiceInput)
 
 // POST pdf - anchor
+// Pending for PDF upload.
 router.post('/invoice-pdf', validateUser)
 
 // POST csv - MM
