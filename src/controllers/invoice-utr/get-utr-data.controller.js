@@ -27,15 +27,18 @@ export const getOutputUtrData = async (req, res) => {
       if (companyName) {
         filter.companyName = new RegExp(companyName, 'i')
       }
+      // if (invoiceNumber) {
+      //   // Convert number field to string and do partial matching
+      //   filter.$expr = {
+      //     $regexMatch: {
+      //       input: { $toString: '$invoiceNumber' },
+      //       regex: invoiceNumber,
+      //       options: 'i',
+      //     },
+      //   }
+      // }
       if (invoiceNumber) {
-        // Convert number field to string and do partial matching
-        filter.$expr = {
-          $regexMatch: {
-            input: { $toString: '$invoiceNumber' },
-            regex: invoiceNumber,
-            options: 'i',
-          },
-        }
+        filter.invoiceNumber = invoiceNumber
       }
       if (distributorCode) {
         filter.distributorCode = new RegExp(distributorCode, 'i')
@@ -44,7 +47,7 @@ export const getOutputUtrData = async (req, res) => {
         filter.utr = new RegExp(utr, 'i')
       }
       if (status) {
-        filter.status = new RegExp(status, 'i')
+        filter.status = new RegExp(`^${status}$`, 'i')
       }
 
       if (fromDate || toDate) {
@@ -65,7 +68,7 @@ export const getOutputUtrData = async (req, res) => {
       }
 
       const skip = (Number(page) - 1) * Number(limit)
-
+      console.log({ filter })
       const data = await OutputUTR.find(filter)
         .skip(skip)
         .limit(Number(limit))
