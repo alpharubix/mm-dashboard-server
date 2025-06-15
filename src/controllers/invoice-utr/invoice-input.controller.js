@@ -2,6 +2,9 @@ import { OutputUTR } from '../../models/output-utr.model.js'
 
 export async function invoiceInput(req, res) {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(401).json({ message: 'Forbidden Insufficent role' })
+    }
     const invoices = req.body
 
     const invoicesToInsert = invoices.map((invoice) => ({

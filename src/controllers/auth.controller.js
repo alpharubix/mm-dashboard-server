@@ -16,8 +16,8 @@ export const register = async (req, res) => {
     }
 
     try {
-      const userName = getUserName(companyName)
-      const existing = await User.findOne({ userName })
+      const username = getUserName(companyName)
+      const existing = await User.findOne({ username })
       if (existing) {
         //check if the username is already taken or not
         return res.status(409).json({ message: 'username already registered' })
@@ -28,7 +28,7 @@ export const register = async (req, res) => {
         //creating account for admin role
         const apiKey = `mm_${randomBytes(32).toString('hex')}`
         const user = await User.create({
-          userName,
+          username,
           companyName,
           password: hashed,
           role,
@@ -36,18 +36,18 @@ export const register = async (req, res) => {
           apiKey,
         })
         return res.status(201).json({
-          data: { companyName, userName, password, apiKey },
+          data: { companyName, username, password, apiKey },
         })
       }
       const user = await User.create({
-        userName,
+        username,
         companyName,
         password: hashed,
         role,
         companyId,
       })
       return res.status(201).json({
-        data: { companyName, userName, password },
+        data: { companyName, username, password },
       })
     } catch (err) {
       res
@@ -59,18 +59,18 @@ export const register = async (req, res) => {
   }
 }
 export const login = async (req, res) => {
-  const { userName, password } = req.body
-  if (!userName || !password)
+  const { username, password } = req.body
+  if (!username || !password)
     return res.status(400).json({ message: 'Email and password are required' })
 
-  const user = await User.findOne({ userName })
+  const user = await User.findOne({ username })
   if (!user || !(await bcrypt.compare(password, user.password))) {
     return res.status(401).json({ message: 'Invalid email or password.' })
   }
   //if user email and password is validated then send the role and company id as jwt code
   const token = jwt.sign(
     {
-      userName,
+      username,
       role: user.role,
       companyId: user.companyId,
       companyName: user.companyName,

@@ -2,7 +2,7 @@ import mongoose from 'mongoose'
 
 const UserSchema = new mongoose.Schema(
   {
-    userName: { type: String, required: true, unique: true },
+    username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: {
       type: String,
@@ -26,8 +26,7 @@ const UserSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
-  { versionKey: false }
+  }
 )
 
 export const User = mongoose.model('User', UserSchema)
