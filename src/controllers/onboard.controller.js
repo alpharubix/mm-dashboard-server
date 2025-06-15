@@ -94,9 +94,9 @@ export async function onboardCsvParseAndSave(req, res) {
     })
 
     // 6) FTP upload
-    await uploadFileToFtp(filePath)
+    // await (filePath)
 
-    // 7) Insert into Mongo
+    // 7) Insert into MongouploadFileToFtp
     insertedDocs = await OnboardNotification.insertMany(toInsert)
 
     // 8) Success Response
@@ -142,15 +142,21 @@ export const getOnboardData = async (req, res) => {
       console.log('This is the filtered monogo obj', filter)
 
       const [data, total] = await Promise.all([
-        OnboardNotification.find(filter).skip(skip).limit(Number(limit)),
+        OnboardNotification.find(filter, {
+          createdAt: 0,
+          updatedAt: 0,
+          __v: 0,
+          sno: 0,
+        })
+          .skip(skip)
+          .limit(Number(limit)),
         OnboardNotification.countDocuments(filter),
       ])
 
       res.status(200).json({
+        message: 'Onboard data fetched successfully',
         data,
         skip,
-        companyName,
-        distributorCode,
         page: Number(page),
         totalPages: Math.ceil(total / Number(limit)),
         total,

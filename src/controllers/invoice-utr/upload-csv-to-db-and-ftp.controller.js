@@ -73,7 +73,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
     }
 
     // 6) FTP upload
-    await uploadFileToFtp(filePath)
+    // await uploadFileToFtp(filePath)
 
     // 5) Cast & update
     const updateOps = []

@@ -105,7 +105,7 @@ export async function outputLimitCsvParseAndSave(req, res) {
     })
 
     // 6) FTP upload
-    await uploadFileToFtp(filePath)
+    // await uploadFileToFtp(filePath)
 
     // 5) Clear previous data
     await OutputLimit.deleteMany({})
@@ -153,11 +153,14 @@ export const getOutputLimitData = async (req, res) => {
       console.log('momgodb filter', filter)
       const skip = (page - 1) * limit
       const [data, total] = await Promise.all([
-        OutputLimit.find(filter).skip(skip).limit(limit),
+        OutputLimit.find(filter, { createdAt: 0, updatedAt: 0, __v: 0, sno: 0 })
+          .skip(skip)
+          .limit(limit),
         OutputLimit.countDocuments(filter),
       ])
       console.log(data)
       res.status(200).json({
+        message: 'Credit limit data fetched successfully',
         data,
         page,
         totalPages: Math.ceil(total / limit),

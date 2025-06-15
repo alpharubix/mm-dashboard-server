@@ -69,7 +69,7 @@ export const getOutputUtrData = async (req, res) => {
 
       const skip = (Number(page) - 1) * Number(limit)
       console.log({ filter })
-      const data = await OutputUTR.find(filter)
+      const data = await OutputUTR.find(filter, { createdAt: 0, updatedAt: 0 })
         .skip(skip)
         .limit(Number(limit))
         .sort({ invoiceDate: -1 })
@@ -77,7 +77,7 @@ export const getOutputUtrData = async (req, res) => {
       const total = await OutputUTR.countDocuments(filter)
 
       res.status(200).json({
-        message: 'Fetched output UTR data successfully',
+        message: 'Invoice data fetched successfully',
         data,
         total,
         page: Number(page),
