@@ -9,7 +9,7 @@ const outputUTR = new mongoose.Schema(
     bankName: { type: String, required: true },
     ifscCode: { type: String, required: true },
     branch: { type: String, required: true },
-    invoiceNumber: { type: Number, required: true, unique: true },
+    invoiceNumber: { type: String, required: true, unique: true },
     invoiceAmount: { type: Number, required: true },
     invoiceDate: { type: Date, required: true },
     loanAmount: { type: Number, required: true },
@@ -20,15 +20,14 @@ const outputUTR = new mongoose.Schema(
     status: {
       type: String,
       enum: [
-        'completed',
-        'pending',
-        'inProgress',
-        'processed',
-        'pendingWithCustomer',
-        'pendingWithLender',
-        'notProcessed',
+        'yetToProcess', // Invice received from anchor
+        'inProgress', // Invioce received from anchor sent for processing
+        'processed', // UTR received against payment request shared.
+        'pendingWithCustomer', // Invoice payment can be pending from customer
+        'pendingWithLender', // Invoice is not processed from lenders
+        'notProcessed', // Invoice received can be cancelled
       ],
-      default: 'pending',
+      default: 'yetToProcess',
       required: true,
     },
     invoicePdfUrl: { type: String },
