@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "prepare": "husky",
+    "prepare": "husky || exit 0",
     "check-format": "prettier --check ./src",
     "format": "prettier --write ./src"
   },

@@ -138,14 +138,14 @@ export const getOnboardData = async (req, res) => {
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
       const skip = (Number(page) - 1) * Number(limit)
-      
+
       console.log('This is the filtered monogo obj', filter)
 
       const [data, total] = await Promise.all([
         OnboardNotification.find(filter).skip(skip).limit(Number(limit)),
         OnboardNotification.countDocuments(filter),
       ])
-      
+
       res.status(200).json({
         data,
         skip,
