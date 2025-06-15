@@ -145,7 +145,7 @@ export const getOutputLimitData = async (req, res) => {
       const filter = {}
       if (user.role === 'admin') {
         //anchor level view data control
-        filter.anchor = user.companyId
+        filter.anchorId = user.companyId
       }
       if (companyName) filter.companyName = new RegExp(companyName, 'i')
       if (distributorCode)

@@ -14,14 +14,20 @@ export const getViewerData = async (req, res) => {
           distributorCode: 1,
           sanctionLimit: 1,
           limitLiveDate: 1,
-          anchor: 1,
+          anchorId: 1,
           _id: 0,
         }
       )
       data.onBoardData = onBoardData
       const credLimit = await OutputLimit.findOne(
         { distributorCode: distributorCode },
-        { distributorCode: 1, utilisedLimit: 1, overdue: 1, anchor: 1, _id: 0 }
+        {
+          distributorCode: 1,
+          utilisedLimit: 1,
+          overdue: 1,
+          anchorId: 1,
+          _id: 0,
+        }
       )
       data.credLimit = credLimit
       const outputUtr = await OutputUTR.find(
@@ -31,7 +37,7 @@ export const getViewerData = async (req, res) => {
           _id: 0,
           loanAmount: 1,
           loanDisbursementDate: 1,
-          anchor: 1,
+          anchorId: 1,
           utr: 1,
           invoiceAmount: 1,
           invoiceNumber: 1,

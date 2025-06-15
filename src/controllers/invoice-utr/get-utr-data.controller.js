@@ -21,7 +21,7 @@ export const getOutputUtrData = async (req, res) => {
       const filter = {}
 
       if (user.role === 'admin') {
-        filter.anchor = user.companyId
+        filter.anchorId = user.companyId
       }
 
       if (companyName) {
@@ -69,7 +69,11 @@ export const getOutputUtrData = async (req, res) => {
 
       const skip = (Number(page) - 1) * Number(limit)
       console.log({ filter })
-      const data = await OutputUTR.find(filter, { createdAt: 0, updatedAt: 0 })
+      const data = await OutputUTR.find(filter, {
+        createdAt: 0,
+        updatedAt: 0,
+        __v: 0,
+      })
         .skip(skip)
         .limit(Number(limit))
         .sort({ invoiceDate: -1 })

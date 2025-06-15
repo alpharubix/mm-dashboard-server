@@ -1,7 +1,7 @@
 import { app } from './app.js'
 import { connectDB } from './db.js'
 
-const PORT = process.env.PORT || 8080 // Use 8080 as fallback
+const PORT = process.env.PORT || 8080
 
 connectDB()
   .then(() => {
