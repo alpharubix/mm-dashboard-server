@@ -4,8 +4,8 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon start.js",
-    "start": "node start.js",
+    "dev": "nodemon server.js",
+    "start": "node server.js",
     "prepare": "husky || exit 0",
     "check-format": "prettier --check .",
     "format": "prettier --write ."
