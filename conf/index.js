@@ -1,5 +1,5 @@
 import dotenv from 'dotenv'
-dotenv.config()
+dotenv.config({ path: './.env' })
 
 export const ENV = {
   MONGODB_URL: String(process.env.MONGODB_URL),
