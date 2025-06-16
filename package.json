@@ -1,14 +1,14 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "main": "start.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
     "dev": "nodemon start.js",
     "start": "node start.js",
     "prepare": "husky || exit 0",
-    "check-format": "prettier --check ./src",
-    "format": "prettier --write ./src"
+    "check-format": "prettier --check .",
+    "format": "prettier --write ."
   },
   "keywords": [],
   "author": "",
@@ -37,10 +37,5 @@
   },
   "engines": {
     "node": "18.x"
-  },
-  "lint-staged": {
-    "src/**/*.{ts,js,md,json}": [
-      "npm run check-format"
-    ]
   }
 }
