@@ -7,7 +7,7 @@ import { OutputUTR } from '../../models/output-utr.model.js'
 import { toCamelCase, uploadFileToFtp } from '../../utils/index.js'
 
 export async function outputUtrCsvParseAndSave(req, res) {
-  const requiredFields = [   
+  const requiredFields = [
     'companyName',
     'distributorCode',
     'beneficiaryName',
@@ -22,7 +22,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
     'loanDisbursementDate',
     'utr',
     'status',
-    'anchorId'
+    'anchorId',
   ]
 
   if (!req.file?.path) {
