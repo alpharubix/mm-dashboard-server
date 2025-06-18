@@ -127,6 +127,7 @@ export const getOnboardData = async (req, res) => {
     const limit = Number(req.query.limit || 10)
     const companyName = String(req.query.companyName || '')
     const distributorCode = String(req.query.distributorCode || '')
+    const anchorId = String(req.query.anchorId||'')
 
     try {
       const filter = {}
@@ -135,6 +136,7 @@ export const getOnboardData = async (req, res) => {
         filter.anchorId = user.companyId
       }
       if (companyName) filter.companyName = new RegExp(companyName, 'i')
+      if(anchorId)filter.anchorId=new RegExp(anchorId,'i')  
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
       const skip = (Number(page) - 1) * Number(limit)

@@ -14,6 +14,7 @@ export const getOutputUtrData = async (req, res) => {
         fromDate,
         toDate,
         status,
+        anchorId,
         page = 1,
         limit = 10,
       } = req.query
@@ -27,6 +28,7 @@ export const getOutputUtrData = async (req, res) => {
       if (companyName) {
         filter.companyName = new RegExp(companyName, 'i')
       }
+      if (anchorId) filter.anchorId = new RegExp(anchorId, 'i')
       // if (invoiceNumber) {
       //   // Convert number field to string and do partial matching
       //   filter.$expr = {

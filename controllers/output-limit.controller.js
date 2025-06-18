@@ -140,6 +140,7 @@ export const getOutputLimitData = async (req, res) => {
     const limit = Number(req.query.limit || 10)
     const companyName = String(req.query.companyName || '')
     const distributorCode = String(req.query.distributorCode || '')
+    const anchorId = String(req.query.anchorId || '')
 
     try {
       const filter = {}
@@ -147,6 +148,7 @@ export const getOutputLimitData = async (req, res) => {
         //anchor level view data control
         filter.anchorId = user.companyId
       }
+      if (anchorId) filter.anchorId = new RegExp(anchorId, 'i')
       if (companyName) filter.companyName = new RegExp(companyName, 'i')
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
