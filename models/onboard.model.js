@@ -10,6 +10,12 @@ const onboardSchema = new mongoose.Schema(
     limitLiveDate: { type: Date, required: true },
     anchorId: { type: String, required: true },
     fundingType: { type: String, required: true, enum: ['open', 'close'] },
+    status: {
+      type: String,
+      required: true,
+      enum: ['active', 'inactive'],
+      default: 'active',
+    },
   },
   { timestamps: true }
 )
