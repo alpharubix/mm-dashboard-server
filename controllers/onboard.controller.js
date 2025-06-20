@@ -14,6 +14,9 @@ export async function onboardCsvParseAndSave(req, res) {
     'lender',
     'sanctionLimit',
     'limitLiveDate',
+    'anchorId',
+    'fundingType',
+    'status',
   ]
 
   if (!req.file?.path) {
@@ -21,8 +24,6 @@ export async function onboardCsvParseAndSave(req, res) {
   }
   const filePath = req.file.path
   const rows = []
-  let insertedDocs // To store the inserted documents if successful
-
   try {
     // 1) Parse CSV into rows[]
     await new Promise((resolve, reject) => {
@@ -64,7 +65,6 @@ export async function onboardCsvParseAndSave(req, res) {
         duplicates: [...new Set(duplicateCodesInCSV)],
       })
     }
-
     // 4) Check for existing distributorCodes in MongoDB
     const existingInDB = await OnboardNotification.find({
       distributorCode: { $in: distributorCodesInCSV },
