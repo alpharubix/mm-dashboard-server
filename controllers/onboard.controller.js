@@ -94,10 +94,7 @@ export async function onboardCsvParseAndSave(req, res) {
       return { ...r, sno, sanctionLimit, limitLiveDate }
     })
 
-    // 6) FTP upload
-    // await (filePath)
-
-    // 7) Insert into MongouploadFileToFtp
+    // 7) Insert into DB
     insertedDocs = await OnboardNotification.insertMany(toInsert)
 
     // 8) Success Response
