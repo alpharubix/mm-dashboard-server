@@ -24,6 +24,7 @@ export async function onboardCsvParseAndSave(req, res) {
   }
   const filePath = req.file.path
   const rows = []
+  let insertedDocs // To store the inserted documents if successful
   try {
     // 1) Parse CSV into rows[]
     await new Promise((resolve, reject) => {
