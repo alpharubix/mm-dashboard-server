@@ -22,6 +22,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
     'loanDisbursementDate',
     'utr',
     'status',
+    'anchorId',
   ]
 
   if (!req.file?.path) {

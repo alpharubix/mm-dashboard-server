@@ -14,6 +14,9 @@ export async function onboardCsvParseAndSave(req, res) {
     'lender',
     'sanctionLimit',
     'limitLiveDate',
+    'anchorId',
+    'fundingType',
+    'status',
   ]
 
   if (!req.file?.path) {
@@ -22,7 +25,6 @@ export async function onboardCsvParseAndSave(req, res) {
   const filePath = req.file.path
   const rows = []
   let insertedDocs // To store the inserted documents if successful
-
   try {
     // 1) Parse CSV into rows[]
     await new Promise((resolve, reject) => {
@@ -64,7 +66,6 @@ export async function onboardCsvParseAndSave(req, res) {
         duplicates: [...new Set(duplicateCodesInCSV)],
       })
     }
-
     // 4) Check for existing distributorCodes in MongoDB
     const existingInDB = await OnboardNotification.find({
       distributorCode: { $in: distributorCodesInCSV },
@@ -93,10 +94,7 @@ export async function onboardCsvParseAndSave(req, res) {
       return { ...r, sno, sanctionLimit, limitLiveDate }
     })
 
-    // 6) FTP upload
-    // await (filePath)
-
-    // 7) Insert into MongouploadFileToFtp
+    // 7) Insert into DB
     insertedDocs = await OnboardNotification.insertMany(toInsert)
 
     // 8) Success Response
@@ -127,6 +125,7 @@ export const getOnboardData = async (req, res) => {
     const limit = Number(req.query.limit || 10)
     const companyName = String(req.query.companyName || '')
     const distributorCode = String(req.query.distributorCode || '')
+    const anchorId = String(req.query.anchorId || '')
 
     try {
       const filter = {}
@@ -135,6 +134,7 @@ export const getOnboardData = async (req, res) => {
         filter.anchorId = user.companyId
       }
       if (companyName) filter.companyName = new RegExp(companyName, 'i')
+      if (anchorId) filter.anchorId = new RegExp(anchorId, 'i')
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
       const skip = (Number(page) - 1) * Number(limit)
