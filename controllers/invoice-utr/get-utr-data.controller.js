@@ -64,8 +64,27 @@ export const getOutputUtrData = async (req, res) => {
         filter.invoiceDate = dateFilter
       }
 
-      const skip = (Number(page) - 1) * Number(limit)
       console.log({ filter })
+
+      // First get the total count
+      const total = await OutputUTR.countDocuments(filter)
+      const totalPages = Math.ceil(total / Number(limit))
+
+      // Then validate page number
+      if (Number(page) > totalPages && total > 0) {
+        return res.status(400).json({
+          message: `Page ${page} does not exist. Total pages: ${totalPages}`,
+          data: [],
+          page: Number(page),
+          totalPages,
+          total,
+          skip: 0,
+        })
+      }
+
+      const skip = (Number(page) - 1) * Number(limit)
+
+      // Then get the data
       const data = await OutputUTR.find(filter, {
         createdAt: 0,
         updatedAt: 0,
@@ -75,20 +94,20 @@ export const getOutputUtrData = async (req, res) => {
         .limit(Number(limit))
         .sort({ invoiceDate: -1 })
 
-      const total = await OutputUTR.countDocuments(filter)
-
+      // TODO: Fix skip
       res.status(200).json({
         message: 'Invoice data fetched successfully',
         data,
         total,
         page: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages,
+        skip,
       })
     } catch (error) {
       console.error('Error fetching OutputUTR data:', error)
       res.status(500).json({ message: 'Internal server error' })
     }
   } else {
-    res.status(401).json({ message: 'Forbidden Insufficient role' })
+    res.status(403).json({ message: 'Forbidden: Insufficient role' })
   }
 }
