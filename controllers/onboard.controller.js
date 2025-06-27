@@ -14,6 +14,9 @@ export async function onboardCsvParseAndSave(req, res) {
     'lender',
     'sanctionLimit',
     'limitLiveDate',
+    'anchorId',
+    'fundingType',
+    'status',
   ]
 
   if (!req.file?.path) {
@@ -22,7 +25,6 @@ export async function onboardCsvParseAndSave(req, res) {
   const filePath = req.file.path
   const rows = []
   let insertedDocs // To store the inserted documents if successful
-
   try {
     // 1) Parse CSV into rows[]
     await new Promise((resolve, reject) => {
@@ -64,7 +66,6 @@ export async function onboardCsvParseAndSave(req, res) {
         duplicates: [...new Set(duplicateCodesInCSV)],
       })
     }
-
     // 4) Check for existing distributorCodes in MongoDB
     const existingInDB = await OnboardNotification.find({
       distributorCode: { $in: distributorCodesInCSV },
@@ -93,10 +94,7 @@ export async function onboardCsvParseAndSave(req, res) {
       return { ...r, sno, sanctionLimit, limitLiveDate }
     })
 
-    // 6) FTP upload
-    // await (filePath)
-
-    // 7) Insert into MongouploadFileToFtp
+    // 7) Insert into DB
     insertedDocs = await OnboardNotification.insertMany(toInsert)
 
     // 8) Success Response
@@ -120,45 +118,122 @@ export async function onboardCsvParseAndSave(req, res) {
   }
 }
 
+// export const getOnboardData = async (req, res) => {
+//   const user = req.user
+//   if (user.role === 'superAdmin' || user.role == 'admin') {
+//     const page = Number(req.query.page || 1)
+//     const limit = Number(req.query.limit || 10)
+//     const companyName = String(req.query.companyName || '')
+//     const distributorCode = String(req.query.distributorCode || '')
+//     const anchorId = String(req.query.anchorId || '')
+
+//     try {
+//       const filter = {}
+//       if (user.role === 'admin') {
+//         //anchor level view data control
+//         filter.anchorId = user.companyId
+//       }
+//       if (companyName) filter.companyName = new RegExp(companyName, 'i')
+//       if (anchorId) filter.anchorId = new RegExp(anchorId, 'i')
+//       if (distributorCode)
+//         filter.distributorCode = new RegExp(distributorCode, 'i')
+//       const totalPages = Math.ceil(total / limit)
+
+//       // Add this validation
+//       if (page > totalPages && total > 0) {
+//         return res.status(400).json({
+//           message: `Page ${page} does not exist. Total pages: ${totalPages}`,
+//         })
+//       }
+
+//       const skip = (page - 1) * limit
+
+//       console.log('This is the filtered monogo obj', filter)
+
+//       const [data, total] = await Promise.all([
+//         OnboardNotification.find(filter, {
+//           createdAt: 0,
+//           updatedAt: 0,
+//           __v: 0,
+//           sno: 0,
+//         })
+//           .skip(skip)
+//           .limit(Number(limit)),
+//         OnboardNotification.countDocuments(filter),
+//       ])
+
+//       res.status(200).json({
+//         message: 'Onboard data fetched successfully',
+//         data,
+//         skip,
+//         page: Number(page),
+//         totalPages: Math.ceil(total / Number(limit)),
+//         total,
+//       })
+//     } catch (err) {
+//       console.error(err)
+//       res.status(500).json({ message: 'Server error' })
+//     }
+//   } else {
+//     res.status(401).json({ message: 'Forbidden Insufficent role' })
+//   }
+// }
+
 export const getOnboardData = async (req, res) => {
   const user = req.user
-  if (user.role === 'superAdmin' || user.role == 'admin') {
+  if (user.role === 'superAdmin' || user.role === 'admin') {
     const page = Number(req.query.page || 1)
     const limit = Number(req.query.limit || 10)
     const companyName = String(req.query.companyName || '')
     const distributorCode = String(req.query.distributorCode || '')
+    const anchorId = String(req.query.anchorId || '')
 
     try {
       const filter = {}
       if (user.role === 'admin') {
-        //anchor level view data control
         filter.anchorId = user.companyId
       }
       if (companyName) filter.companyName = new RegExp(companyName, 'i')
+      if (anchorId) filter.anchorId = new RegExp(anchorId, 'i')
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
-      const skip = (Number(page) - 1) * Number(limit)
 
-      console.log('This is the filtered monogo obj', filter)
+      console.log('This is the filtered mongo obj', filter)
 
-      const [data, total] = await Promise.all([
-        OnboardNotification.find(filter, {
-          createdAt: 0,
-          updatedAt: 0,
-          __v: 0,
-          sno: 0,
+      // First get the total count
+      const total = await OnboardNotification.countDocuments(filter)
+      const totalPages = Math.ceil(total / limit)
+
+      // Then validate page number
+      if (page > totalPages && total > 0) {
+        return res.status(400).json({
+          message: `Page ${page} does not exist. Total pages: ${totalPages}`,
+          data: [],
+          total,
+          totalPages,
+          page,
+          skip: 0,
         })
-          .skip(skip)
-          .limit(Number(limit)),
-        OnboardNotification.countDocuments(filter),
-      ])
+      }
+
+      const skip = (page - 1) * limit
+
+      // Then get the data
+      const data = await OnboardNotification.find(filter, {
+        createdAt: 0,
+        updatedAt: 0,
+        __v: 0,
+        sno: 0,
+      })
+        .skip(skip)
+        .limit(limit)
 
       res.status(200).json({
         message: 'Onboard data fetched successfully',
         data,
         skip,
-        page: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
+        page,
+        totalPages,
         total,
       })
     } catch (err) {
@@ -166,6 +241,6 @@ export const getOnboardData = async (req, res) => {
       res.status(500).json({ message: 'Server error' })
     }
   } else {
-    res.status(401).json({ message: 'Forbidden Insufficent role' })
+    res.status(403).json({ message: 'Forbidden: Insufficient role' })
   }
 }
