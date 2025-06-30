@@ -6,8 +6,6 @@ export async function validateUser(req, res, next) {
   try {
     const jwtToken = req.header('Authorization')
     const apiKey = req.header('x-api-key')
-    //if token is provided then check if the token is jwt or api key
-
     // Check if neither authentication method is provided
     if (!apiKey && !jwtToken) {
       return res.status(401).json({ error: 'Authentication required' })
@@ -25,8 +23,8 @@ export async function validateUser(req, res, next) {
 
     if (jwtToken) {
       try {
-        const decoded = jsonwebtoken.verify(jwtToken, ENV.JWT_SECRET)
-        req.user = decoded
+        const decodedUser = jsonwebtoken.verify(jwtToken, ENV.JWT_SECRET)
+        req.user = decodedUser
         return next()
       } catch {
         return res.status(403).json({ error: 'Invalid JWT token' })

@@ -4,7 +4,7 @@ import fs from 'fs'
 import { unlink } from 'fs/promises'
 
 import { OutputUTR } from '../../models/output-utr.model.js'
-import { toCamelCase, uploadFileToFtp } from '../../utils/index.js'
+import { toCamelCase } from '../../utils/index.js'
 
 export async function outputUtrCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -72,9 +72,6 @@ export async function outputUtrCsvParseAndSave(req, res) {
         duplicates: [...new Set(duplicatesInCSV)],
       })
     }
-
-    // 6) FTP upload
-    // await uploadFileToFtp(filePath)
 
     // 5) Cast & update
     const updateOps = []

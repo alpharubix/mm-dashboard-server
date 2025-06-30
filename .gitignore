@@ -2,3 +2,9 @@ node_modules
 .env
 inputfiles/*
 !inputfiles/.gitkeep
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
