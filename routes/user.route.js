@@ -1,7 +1,7 @@
 import express from 'express'
 import { getUsers, updateUserRole } from '../controllers/user.controller.js'
-import { validateUser } from '../middlewares/auth.js'
-import { isSuperAdmin } from '../middlewares/fileUploadBlocker.js'
+import { validateUser } from '../middlewares/user.middleware.js'
+import { isSuperAdmin } from '../middlewares/role.middleware.js'
 
 const router = express.Router()
 

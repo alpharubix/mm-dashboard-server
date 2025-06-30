@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-export default function upload() {
+// Multer config for csv upload data
+export function csvUpload() {
   try {
     const storage = multer.diskStorage({
       destination: (req, file, cb) => {
@@ -29,4 +30,22 @@ export default function upload() {
   } catch (error) {
     res.status('')
   }
+}
+
+// Multer config for multipart form data
+export function uploadPdf() {
+  return multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB per file
+      files: 200, // increased for high volume
+    },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true)
+      } else {
+        cb(new Error('Only PDF files allowed'))
+      }
+    },
+  })
 }
