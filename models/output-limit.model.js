@@ -8,6 +8,7 @@ const outputLimit = new mongoose.Schema(
     city: { type: String, required: true },
     state: { type: String, required: true },
     lender: { type: String, required: true },
+    limitExpiryDate: { type: Date, required: true },
     sanctionLimit: { type: Number, required: true },
     operativeLimit: { type: Number, required: true },
     utilisedLimit: { type: Number, required: true },
