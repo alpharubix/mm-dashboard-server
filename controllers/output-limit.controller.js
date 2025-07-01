@@ -4,6 +4,7 @@ import { unlink } from 'fs/promises'
 
 import { OutputLimit } from '../models/output-limit.model.js'
 import { toCamelCase } from '../utils/index.js'
+import { parse } from 'date-fns'
 
 export async function outputLimitCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -13,6 +14,7 @@ export async function outputLimitCsvParseAndSave(req, res) {
     'city',
     'state',
     'lender',
+    'limitExpiryDate',
     'sanctionLimit',
     'operativeLimit',
     'utilisedLimit',
@@ -79,6 +81,8 @@ export async function outputLimitCsvParseAndSave(req, res) {
       const utilisedLimit = Number(r.utilisedLimit.replace(/,/g, ''))
       const availableLimit = Number(r.availableLimit.replace(/,/g, ''))
       const overdue = Number(r.overdue.replace(/,/g, ''))
+      const billingStatus = r.billingStatus
+      const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
 
       // Validation
       if (
@@ -87,9 +91,10 @@ export async function outputLimitCsvParseAndSave(req, res) {
         isNaN(operativeLimit) ||
         isNaN(utilisedLimit) ||
         isNaN(availableLimit) ||
-        isNaN(overdue)
+        isNaN(overdue) ||
+        isNaN(limitExpiryDate.getDate())
       ) {
-        throw new Error('Invalid number in CSV')
+        throw new Error('Invalid data types in CSV')
       }
 
       return {
@@ -100,7 +105,8 @@ export async function outputLimitCsvParseAndSave(req, res) {
         utilisedLimit,
         availableLimit,
         overdue,
-        billingStatus: r.billingStatus,
+        billingStatus,
+        limitExpiryDate,
       }
     })
 

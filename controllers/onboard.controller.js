@@ -14,6 +14,7 @@ export async function onboardCsvParseAndSave(req, res) {
     'lender',
     'sanctionLimit',
     'limitLiveDate',
+    'limitExpiryDate',
     'anchorId',
     'fundingType',
     'status',
@@ -83,15 +84,17 @@ export async function onboardCsvParseAndSave(req, res) {
       const sno = Number(r.sno)
       const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
       const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yy', new Date())
+      const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
 
       if (
         isNaN(sno) ||
         isNaN(sanctionLimit) ||
-        isNaN(limitLiveDate.getTime())
+        isNaN(limitLiveDate.getTime()) ||
+        isNaN(limitExpiryDate.getDate())
       ) {
         throw new Error('Invalid data types in CSV')
       }
-      return { ...r, sno, sanctionLimit, limitLiveDate }
+      return { ...r, sno, sanctionLimit, limitLiveDate, limitExpiryDate }
     })
 
     // 7) Insert into DB
