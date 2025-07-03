@@ -3,10 +3,10 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
-import { OutputUTR } from '../../models/output-utr.model.js'
+import { Invoice } from '../../models/invoice.model.js'
 import { toCamelCase } from '../../utils/index.js'
 
-export async function outputUtrCsvParseAndSave(req, res) {
+export async function invoiceCsvParseAndSave(req, res) {
   const requiredFields = [
     'companyName',
     'distributorCode',
@@ -113,7 +113,7 @@ export async function outputUtrCsvParseAndSave(req, res) {
 
     let result = { matchedCount: 0, modifiedCount: 0 }
     if (updateOps.length) {
-      result = await OutputUTR.bulkWrite(updateOps, { ordered: false })
+      result = await Invoice.bulkWrite(updateOps, { ordered: false })
     }
 
     // 6) Final response

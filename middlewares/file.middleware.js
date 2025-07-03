@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Multer config for csv upload data
-export function csvUpload() {
+export function uploadCsv() {
   try {
     const storage = multer.diskStorage({
       destination: (req, file, cb) => {

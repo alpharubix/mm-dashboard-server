@@ -1,11 +1,11 @@
 import express from 'express'
 import {
-  getOutputLimitData,
-  outputLimitCsvParseAndSave,
-} from '../controllers/output-limit.controller.js'
+  getCreditLimitData,
+  creditLimitCsvParseAndSave,
+} from '../controllers/credit-limit.controller.js'
 import { validateUser } from '../middlewares/user.middleware.js'
 import { isSuperAdmin } from '../middlewares/role.middleware.js'
-import { csvUpload } from '../middlewares/file.middleware.js'
+import { uploadCsv } from '../middlewares/file.middleware.js'
 
 const router = express.Router()
 
@@ -13,9 +13,9 @@ router.post(
   '/credit-limit-upload',
   validateUser,
   isSuperAdmin,
-  csvUpload().single('csvfile'),
-  outputLimitCsvParseAndSave
+  uploadCsv().single('csvfile'),
+  creditLimitCsvParseAndSave
 )
-router.get('/credit-limit', validateUser, getOutputLimitData)
+router.get('/credit-limit', validateUser, getCreditLimitData)
 
 export default router

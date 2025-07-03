@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const outputUTR = new mongoose.Schema(
+const invoice = new mongoose.Schema(
   {
     companyName: { type: String, required: true },
     distributorCode: { type: String, required: true },
@@ -35,4 +35,4 @@ const outputUTR = new mongoose.Schema(
   { timestamps: true }
 )
 
-export const OutputUTR = mongoose.model('OutputUTR', outputUTR)
+export const Invoice = mongoose.model('Invoice', invoice)

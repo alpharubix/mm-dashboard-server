@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const outputLimit = new mongoose.Schema(
+const creditLimit = new mongoose.Schema(
   {
     sno: { type: Number, required: true },
     companyName: { type: String, required: true },
@@ -25,4 +25,4 @@ const outputLimit = new mongoose.Schema(
   { timestamps: true }
 )
 
-export const OutputLimit = mongoose.model('OutputLimit', outputLimit)
+export const CreditLimit = mongoose.model('CreditLimit', creditLimit)

@@ -1,6 +1,6 @@
-import { OnboardNotification } from '../models/onboard.model.js'
-import { OutputLimit } from '../models/output-limit.model.js'
-import { OutputUTR } from '../models/output-utr.model.js'
+import { Onboard } from '../models/onboard.model.js'
+import { CreditLimit } from '../models/credit-limit.model.js'
+import { Invoice } from '../models/invoice.model.js'
 
 export const getViewerData = async (req, res) => {
   const user = req.user
@@ -8,7 +8,7 @@ export const getViewerData = async (req, res) => {
     const data = {}
     const distributorCode = user.companyId
     try {
-      const onBoardData = await OnboardNotification.findOne(
+      const onBoardData = await Onboard.findOne(
         { distributorCode: distributorCode },
         {
           distributorCode: 1,
@@ -19,7 +19,7 @@ export const getViewerData = async (req, res) => {
         }
       )
       data.onBoardData = onBoardData
-      const credLimit = await OutputLimit.findOne(
+      const credLimit = await CreditLimit.findOne(
         { distributorCode: distributorCode },
         {
           distributorCode: 1,
@@ -30,7 +30,7 @@ export const getViewerData = async (req, res) => {
         }
       )
       data.credLimit = credLimit
-      const outputUtr = await OutputUTR.find(
+      const invoiceData = await Invoice.find(
         { distributorCode: distributorCode },
         {
           distributorCode: 1,
@@ -45,7 +45,7 @@ export const getViewerData = async (req, res) => {
           status: 1,
         }
       )
-      data.outputUtr = outputUtr
+      data.invoiceData = invoiceData
       res.status(200).json({ data })
     } catch (error) {
       console.log('unable to query the db')

@@ -21,7 +21,4 @@ const onboardSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
-export const OnboardNotification = mongoose.model(
-  'OnboardNotification',
-  onboardSchema
-)
+export const Onboard = mongoose.model('Onboard', onboardSchema)

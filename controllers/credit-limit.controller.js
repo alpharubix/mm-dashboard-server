@@ -2,11 +2,11 @@ import csvParser from 'csv-parser'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
-import { OutputLimit } from '../models/output-limit.model.js'
+import { CreditLimit } from '../models/credit-limit.model.js'
 import { toCamelCase } from '../utils/index.js'
 import { parse } from 'date-fns'
 
-export async function outputLimitCsvParseAndSave(req, res) {
+export async function creditLimitCsvParseAndSave(req, res) {
   const requiredFields = [
     'sno',
     'companyName',
@@ -111,10 +111,10 @@ export async function outputLimitCsvParseAndSave(req, res) {
     })
 
     // 5) Clear previous data
-    await OutputLimit.deleteMany({})
+    await CreditLimit.deleteMany({})
 
     // 6) Insert into Mongo
-    insertedDocs = await OutputLimit.insertMany(toInsert)
+    insertedDocs = await CreditLimit.insertMany(toInsert)
 
     res.json({
       message: 'File parsed and saved successfully',
@@ -135,7 +135,7 @@ export async function outputLimitCsvParseAndSave(req, res) {
   }
 }
 
-export const getOutputLimitData = async (req, res) => {
+export const getCreditLimitData = async (req, res) => {
   const user = req.user
   console.log({ user })
   if (user.role === 'superAdmin' || user.role === 'admin') {
@@ -159,7 +159,7 @@ export const getOutputLimitData = async (req, res) => {
       console.log('mongodb filter', filter)
 
       // First get the total count
-      const total = await OutputLimit.countDocuments(filter)
+      const total = await CreditLimit.countDocuments(filter)
       const totalPages = Math.ceil(total / limit)
 
       // Then validate page number
@@ -177,7 +177,7 @@ export const getOutputLimitData = async (req, res) => {
       const skip = (page - 1) * limit
 
       // Then get the data
-      const data = await OutputLimit.find(filter, {
+      const data = await CreditLimit.find(filter, {
         createdAt: 0,
         updatedAt: 0,
         __v: 0,
@@ -197,7 +197,7 @@ export const getOutputLimitData = async (req, res) => {
         skip,
       })
     } catch (err) {
-      console.error('Error in getOutputLimitData:', err)
+      console.error('Error in getCreditLimitData:', err)
       res.status(500).json({ message: 'Server error' })
     }
   } else {

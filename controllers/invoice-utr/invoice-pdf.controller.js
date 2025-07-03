@@ -1,5 +1,5 @@
 import path from 'path'
-import { OutputUTR } from '../../models/output-utr.model.js'
+import { Invoice } from '../../models/invoice.model.js'
 import { uploadPdfToGcs } from '../../utils/pdf-upload.js'
 
 export async function invoicePdf(req, res) {
@@ -24,7 +24,7 @@ export async function invoicePdf(req, res) {
         const invoiceNumber = parseInt(path.parse(file.originalname).name)
 
         // Check if invoice exists for this anchor
-        const existingInvoice = await OutputUTR.findOne({
+        const existingInvoice = await Invoice.findOne({
           invoiceNumber,
           anchorId,
         })
@@ -48,7 +48,7 @@ export async function invoicePdf(req, res) {
         const publicUrl = await uploadPdfToGcs(file.buffer, destFileName)
 
         // Update invoice with PDF URL
-        await OutputUTR.updateOne(
+        await Invoice.updateOne(
           { _id: existingInvoice._id },
           { invoicePdfUrl: publicUrl }
         )

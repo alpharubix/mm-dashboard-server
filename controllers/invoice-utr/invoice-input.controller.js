@@ -1,4 +1,4 @@
-import { OutputUTR } from '../../models/output-utr.model.js'
+import { Invoice } from '../../models/invoice.model.js'
 
 export async function invoiceInput(req, res) {
   try {
@@ -28,7 +28,7 @@ export async function invoiceInput(req, res) {
     }
 
     // Check for existing duplicates in database
-    const existingInvoices = await OutputUTR.find({
+    const existingInvoices = await Invoice.find({
       invoiceNumber: { $in: invoiceNumbers },
     }).select('invoiceNumber')
 
@@ -40,7 +40,7 @@ export async function invoiceInput(req, res) {
       })
     }
 
-    await OutputUTR.insertMany(invoicesToInsert)
+    await Invoice.insertMany(invoicesToInsert)
 
     res.status(201).json({
       message: `${invoices.length} invoice(s) created successfully`,

@@ -3,7 +3,7 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
-import { OnboardNotification } from '../models/onboard.model.js'
+import { Onboard } from '../models/onboard.model.js'
 import { toCamelCase } from '../utils/index.js'
 
 export async function onboardCsvParseAndSave(req, res) {
@@ -68,7 +68,7 @@ export async function onboardCsvParseAndSave(req, res) {
       })
     }
     // 4) Check for existing distributorCodes in MongoDB
-    const existingInDB = await OnboardNotification.find({
+    const existingInDB = await Onboard.find({
       distributorCode: { $in: distributorCodesInCSV },
     }).select('distributorCode')
     if (existingInDB.length) {
@@ -98,7 +98,7 @@ export async function onboardCsvParseAndSave(req, res) {
     })
 
     // 7) Insert into DB
-    insertedDocs = await OnboardNotification.insertMany(toInsert)
+    insertedDocs = await Onboard.insertMany(toInsert)
 
     // 8) Success Response
     res.json({
@@ -143,7 +143,7 @@ export const getOnboardData = async (req, res) => {
       console.log('This is the filtered mongo obj', filter)
 
       // First get the total count
-      const total = await OnboardNotification.countDocuments(filter)
+      const total = await Onboard.countDocuments(filter)
       const totalPages = Math.ceil(total / limit)
 
       // Then validate page number
@@ -161,7 +161,7 @@ export const getOnboardData = async (req, res) => {
       const skip = (page - 1) * limit
 
       // Then get the data
-      const data = await OnboardNotification.find(filter, {
+      const data = await Onboard.find(filter, {
         createdAt: 0,
         updatedAt: 0,
         __v: 0,

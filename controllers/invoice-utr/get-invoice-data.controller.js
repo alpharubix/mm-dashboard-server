@@ -1,8 +1,8 @@
 import { parse } from 'date-fns'
 
-import { OutputUTR } from '../../models/output-utr.model.js'
+import { Invoice } from '../../models/invoice.model.js'
 
-export const getOutputUtrData = async (req, res) => {
+export const getInvoiceData = async (req, res) => {
   const user = req.user
   if (user.role === 'superAdmin' || user.role === 'admin') {
     try {
@@ -67,7 +67,7 @@ export const getOutputUtrData = async (req, res) => {
       console.log({ filter })
 
       // First get the total count
-      const total = await OutputUTR.countDocuments(filter)
+      const total = await Invoice.countDocuments(filter)
       const totalPages = Math.ceil(total / Number(limit))
 
       // Then validate page number
@@ -85,7 +85,7 @@ export const getOutputUtrData = async (req, res) => {
       const skip = (Number(page) - 1) * Number(limit)
 
       // Then get the data
-      const data = await OutputUTR.find(filter, {
+      const data = await Invoice.find(filter, {
         createdAt: 0,
         updatedAt: 0,
         __v: 0,
@@ -104,7 +104,7 @@ export const getOutputUtrData = async (req, res) => {
         skip,
       })
     } catch (error) {
-      console.error('Error fetching OutputUTR data:', error)
+      console.error('Error fetching Invoice data:', error)
       res.status(500).json({ message: 'Internal server error' })
     }
   } else {

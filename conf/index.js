@@ -4,10 +4,8 @@ dotenv.config({ path: './.env' })
 export const ENV = {
   MONGODB_URL: String(process.env.MONGODB_URL),
   MONGODB_URL_LOCAL: String(process.env.MONGODB_URL_LOCAL),
+  MONGODB_DB_NAME: String(process.env.MONGODB_DB_NAME),
   JWT_SECRET: String(process.env.JWT_SECRET),
-  FTP_HOST: String(process.env.FTP_HOST),
-  FTP_USER: String(process.env.FTP_USER),
-  FTP_PASS: String(process.env.FTP_PASS),
   CLIENT_ID: String(process.env.CLIENT_ID),
   CLIENT_X509_CERT_URL: String(process.env.CLIENT_X509_CERT_URL),
   PRIVATE_KEY_ID: String(process.env.PRIVATE_KEY_ID),
