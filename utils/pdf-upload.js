@@ -17,7 +17,7 @@ export const uploadPdfToGcs = async (buffer, destFileName) => {
       metadata: {
         contentType: 'application/pdf',
       },
-      public: true,
+      // public: true,
     })
 
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destFileName}`

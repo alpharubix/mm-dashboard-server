@@ -55,6 +55,7 @@ export async function invoicePdf(req, res) {
 
         successCount++
       } catch (fileError) {
+        console.log(fileError)
         errors.push({
           filename: file.originalname,
           error: 'Upload failed',
