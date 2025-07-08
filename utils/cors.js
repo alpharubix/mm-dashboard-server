@@ -1,7 +1,7 @@
 import cors from 'cors'
 
 const allowedOrigins = [
-  'https://mm-dashboard-client.vercel.app',
+  'https://mm-dashboard-client-three.vercel.app',
   'http://localhost:5173',
 ]
 
