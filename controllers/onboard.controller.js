@@ -1,5 +1,5 @@
 import csvParser from 'csv-parser'
-import { parse } from 'date-fns'
+import { parse, isValid } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
@@ -8,7 +8,6 @@ import { toCamelCase } from '../utils/index.js'
 
 export async function onboardCsvParseAndSave(req, res) {
   const requiredFields = [
-    'sno',
     'companyName',
     'distributorCode',
     'lender',
@@ -71,35 +70,56 @@ export async function onboardCsvParseAndSave(req, res) {
     const existingInDB = await Onboard.find({
       distributorCode: { $in: distributorCodesInCSV },
     }).select('distributorCode')
-    if (existingInDB.length) {
-      const existingCodes = existingInDB.map((doc) => doc.distributorCode)
-      return res.status(400).json({
-        message: 'Distributor Codes already exist in the database',
-        duplicates: existingCodes,
-      })
-    }
+
+    // Create a Set for fast lookup of existing codes
+    const existingCodesSet = new Set(
+      existingInDB.map((doc) => doc.distributorCode)
+    )
 
     // 5) Cast & prepare documents
-    const toInsert = rows.map((r) => {
-      const sno = Number(r.sno)
+    const bulkOps = rows.map((r) => {
       const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
       const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yy', new Date())
       const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
-
+      const status = r.status
       if (
-        isNaN(sno) ||
         isNaN(sanctionLimit) ||
-        isNaN(limitLiveDate.getTime()) ||
-        isNaN(limitExpiryDate.getDate())
+        !isValid(limitLiveDate) ||
+        !isValid(limitExpiryDate) ||
+        typeof status !== 'string' ||
+        status.trim() === ''
       ) {
-        throw new Error('Invalid data types in CSV')
+        throw new Error(
+          'Invalid input: Please check sanctionLimit, limitLiveDate, limitExpiryDate, or status'
+        )
       }
-      return { ...r, sno, sanctionLimit, limitLiveDate, limitExpiryDate }
+
+      const document = {
+        ...r,
+        sanctionLimit,
+        limitLiveDate,
+        limitExpiryDate,
+        status,
+      }
+
+      if (existingCodesSet.has(r.distributorCode)) {
+        return {
+          updateOne: {
+            filter: { distributorCode: r.distributorCode },
+            update: { $set: document },
+          },
+        }
+      } else {
+        return {
+          insertOne: {
+            document,
+          },
+        }
+      }
     })
-
     // 7) Insert into DB
-    insertedDocs = await Onboard.insertMany(toInsert)
-
+    // Execute bulk write
+    insertedDocs = await Onboard.bulkWrite(bulkOps)
     // 8) Success Response
     res.json({
       message: 'File parsed and saved successfully',
@@ -165,7 +185,6 @@ export const getOnboardData = async (req, res) => {
         createdAt: 0,
         updatedAt: 0,
         __v: 0,
-        sno: 0,
       })
         .skip(skip)
         .limit(limit)
