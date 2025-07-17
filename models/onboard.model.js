@@ -2,7 +2,6 @@ import mongoose from 'mongoose'
 
 const onboardSchema = new mongoose.Schema(
   {
-    sno: { type: Number, required: true },
     companyName: { type: String, required: true },
     distributorCode: { type: String, required: true, unique: true },
     lender: { type: String, required: true },
