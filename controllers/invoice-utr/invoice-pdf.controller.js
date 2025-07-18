@@ -17,6 +17,7 @@ export async function invoicePdf(req, res) {
     let successCount = 0
     let skippedCount = 0
     const errors = []
+    const skippedInvoices = []
 
     for (const file of files) {
       try {
@@ -40,6 +41,7 @@ export async function invoicePdf(req, res) {
         // Check if PDF already uploaded - skip to prevent duplicate GCS uploads
         if (existingInvoice.invoicePdfUrl) {
           skippedCount++
+          skippedInvoices.push(invoiceNumber)
           continue
         }
 
@@ -63,11 +65,12 @@ export async function invoicePdf(req, res) {
       }
     }
 
-    res.json({
+    res.status(200).json({
       message: `${successCount} files uploaded, ${skippedCount} skipped (already exists)`,
       totalUploaded: successCount,
       totalSkipped: skippedCount,
       totalFiles: files.length,
+      skippedInvoices: skippedInvoices.length > 0 ? skippedInvoices : [],
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {
