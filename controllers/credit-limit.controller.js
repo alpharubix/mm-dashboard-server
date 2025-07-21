@@ -4,11 +4,10 @@ import { unlink } from 'fs/promises'
 
 import { CreditLimit } from '../models/credit-limit.model.js'
 import { toCamelCase } from '../utils/index.js'
-import { parse } from 'date-fns'
+import { isValid, parse } from 'date-fns'
 
 export async function creditLimitCsvParseAndSave(req, res) {
   const requiredFields = [
-    'sno',
     'companyName',
     'distributorCode',
     'city',
@@ -21,6 +20,8 @@ export async function creditLimitCsvParseAndSave(req, res) {
     'availableLimit',
     'overdue',
     'billingStatus',
+    'fundingType',
+    'anchorId',
   ]
 
   if (!req.file?.path) {
@@ -72,34 +73,45 @@ export async function creditLimitCsvParseAndSave(req, res) {
       })
     }
 
+    // Check if anchorId is same or no in one csv file.
+    const duplicateAnchorId = rows.map((r) => r.anchorId)
+    const isAllSame = new Set(duplicateAnchorId).size === 1
+    if (!isAllSame) {
+      return res.status(400).json({
+        message: 'Anchor Id must be same in one file',
+      })
+    }
+
+    const csvAnchorId = rows[0].anchorId
+
     // 4) Cast & prepare documents
     const toInsert = rows.map((r) => {
       // Clean and parse numbers
-      const sno = Number(r.sno)
       const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
       const operativeLimit = Number(r.operativeLimit.replace(/,/g, ''))
       const utilisedLimit = Number(r.utilisedLimit.replace(/,/g, ''))
       const availableLimit = Number(r.availableLimit.replace(/,/g, ''))
       const overdue = Number(r.overdue.replace(/,/g, ''))
       const billingStatus = r.billingStatus
+      const anchorId = r.anchorId
       const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
 
       // Validation
       if (
-        isNaN(sno) ||
         isNaN(sanctionLimit) ||
         isNaN(operativeLimit) ||
         isNaN(utilisedLimit) ||
         isNaN(availableLimit) ||
         isNaN(overdue) ||
-        isNaN(limitExpiryDate.getDate())
+        !isValid(limitExpiryDate) ||
+        typeof billingStatus !== 'string' ||
+        billingStatus.trim() === ''
       ) {
         throw new Error('Invalid data types in CSV')
       }
 
       return {
         ...r,
-        sno,
         sanctionLimit,
         operativeLimit,
         utilisedLimit,
@@ -110,11 +122,19 @@ export async function creditLimitCsvParseAndSave(req, res) {
       }
     })
 
-    // 5) Clear previous data
-    await CreditLimit.deleteMany({})
+    // 5) Database operations with session (All or Nothing)
+    const session = await mongoose.startSession()
+    try {
+      await session.withTransaction(async () => {
+        // Clear previous data for this anchor
+        await CreditLimit.deleteMany({ anchorId: csvAnchorId }, { session })
 
-    // 6) Insert into Mongo
-    insertedDocs = await CreditLimit.insertMany(toInsert)
+        // Insert new data
+        insertedDocs = await CreditLimit.insertMany(toInsert, { session })
+      })
+    } finally {
+      await session.endSession()
+    }
 
     res.json({
       message: 'File parsed and saved successfully',
@@ -156,7 +176,7 @@ export const getCreditLimitData = async (req, res) => {
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
 
-      console.log('mongodb filter', filter)
+      // console.log('mongodb filter', filter)
 
       // First get the total count
       const total = await CreditLimit.countDocuments(filter)
@@ -186,7 +206,7 @@ export const getCreditLimitData = async (req, res) => {
         .skip(skip)
         .limit(limit)
 
-      console.log(data)
+      // console.log(data)
 
       res.status(200).json({
         message: 'Credit limit data fetched successfully',
