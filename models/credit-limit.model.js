@@ -2,7 +2,6 @@ import mongoose from 'mongoose'
 
 const creditLimit = new mongoose.Schema(
   {
-    sno: { type: Number, required: true },
     companyName: { type: String, required: true },
     distributorCode: { type: String, required: true, unique: true },
     city: { type: String, required: true },
