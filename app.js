@@ -30,8 +30,21 @@ if (process.env.NODE_ENV === 'development') {
 
 // security
 app.use(helmet())
+
 app.use(express.json())
 app.use(corsMiddleware)
+
+// TODO -
+// app.get('/', (req, res) => {
+//   res.redirect('/docs');  // or your Swagger UI, React router, etc.
+// });
+
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'R1Xchange(formerly Meramerchant) API',
+  })
+})
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }))
 
