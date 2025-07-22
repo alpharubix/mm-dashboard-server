@@ -82,16 +82,21 @@ export async function onboardCsvParseAndSave(req, res) {
       const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yy', new Date())
       const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
       const status = r.status
+
+      if (!isValid(limitLiveDate)) {
+        throw new Error(`Invalid date format: ${r.limitLiveDate}`)
+      }
+
+      if (!isValid(limitExpiryDate)) {
+        throw new Error(`Invalid date format: ${r.limitExpiryDate}`)
+      }
+
       if (
         isNaN(sanctionLimit) ||
-        !isValid(limitLiveDate) ||
-        !isValid(limitExpiryDate) ||
         typeof status !== 'string' ||
         status.trim() === ''
       ) {
-        throw new Error(
-          'Invalid input: Please check sanctionLimit, limitLiveDate, limitExpiryDate, or status'
-        )
+        throw new Error('Invalid input: Please check sanctionLimit, status')
       }
 
       const document = {

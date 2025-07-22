@@ -97,6 +97,10 @@ export async function creditLimitCsvParseAndSave(req, res) {
       const anchorId = r.anchorId
       const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
 
+      if (!isValid(limitExpiryDate)) {
+        throw new Error(`Invalid date format: ${r.limitExpiryDate}`)
+      }
+
       // Validation
       if (
         isNaN(sanctionLimit) ||
@@ -104,7 +108,6 @@ export async function creditLimitCsvParseAndSave(req, res) {
         isNaN(utilisedLimit) ||
         isNaN(availableLimit) ||
         isNaN(overdue) ||
-        !isValid(limitExpiryDate) ||
         typeof billingStatus !== 'string' ||
         billingStatus.trim() === ''
       ) {
