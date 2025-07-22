@@ -21,6 +21,8 @@ const routes = [
 
 export const app = express()
 
+app.set('trust proxy', true)
+
 // logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'))
