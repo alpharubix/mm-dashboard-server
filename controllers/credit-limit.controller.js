@@ -6,6 +6,7 @@ import mongoose from 'mongoose'
 import { CreditLimit } from '../models/credit-limit.model.js'
 import { toCamelCase } from '../utils/index.js'
 import { isValid, parse } from 'date-fns'
+import { calculatePendingInvoices } from '../utils/services.js'
 
 export async function creditLimitCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -83,49 +84,109 @@ export async function creditLimitCsvParseAndSave(req, res) {
       })
     }
 
+    // Get the anchorId from the first row to delete only that anchor's data
     const csvAnchorId = rows[0].anchorId
 
     // 4) Cast & prepare documents
-    const toInsert = rows.map((r) => {
-      // Clean and parse numbers
-      const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
-      const operativeLimit = Number(r.operativeLimit.replace(/,/g, ''))
-      const utilisedLimit = Number(r.utilisedLimit.replace(/,/g, ''))
-      const availableLimit = Number(r.availableLimit.replace(/,/g, ''))
-      const overdue = Number(r.overdue.replace(/,/g, ''))
-      const billingStatus = r.billingStatus
-      const anchorId = r.anchorId
-      const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
+    const toInsert = await Promise.all(
+      rows.map(async (r) => {
+        // Clean and parse numbers
+        const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
+        const operativeLimit = Number(r.operativeLimit.replace(/,/g, ''))
+        const utilisedLimit = Number(r.utilisedLimit.replace(/,/g, ''))
+        const availableLimit = Number(r.availableLimit.replace(/,/g, ''))
+        const overdue = Number(r.overdue.replace(/,/g, ''))
+        const billingStatus = r.billingStatus.trim().toLowerCase()
+        if (!['positive', 'negative'].includes(billingStatus)) {
+          throw new Error(
+            `Invalid billing status: ${billingStatus}. Must be 'positive' or 'negative'.`
+          )
+        }
+        const fundingType = r.fundingType.trim().toLowerCase()
+        if (!['open', 'close'].includes(fundingType)) {
+          throw new Error(
+            `Invalid funding type: ${fundingType}. Must be 'open' or 'close'.`
+          )
+        }
+        if (!r.anchorId || r.anchorId.trim() === '') {
+          throw new Error('Anchor ID is required and cannot be empty')
+        }
+        const companyName = r.companyName.trim()
+        if (!companyName || companyName.length < 3) {
+          throw new Error(
+            'Company name is required and must be at least 3 characters long'
+          )
+        }
+        const city = r.city.trim()
+        if (!city || city.length < 2) {
+          throw new Error(
+            'City is required and must be at least 2 characters long'
+          )
+        }
 
-      if (!isValid(limitExpiryDate)) {
-        throw new Error(`Invalid date format: ${r.limitExpiryDate}`)
-      }
+        const state = r.state.trim()
+        if (!state || state.length < 2) {
+          throw new Error(
+            'State is required and must be at least 2 characters long'
+          )
+        }
 
-      // Validation
-      if (
-        isNaN(sanctionLimit) ||
-        isNaN(operativeLimit) ||
-        isNaN(utilisedLimit) ||
-        isNaN(availableLimit) ||
-        isNaN(overdue) ||
-        typeof billingStatus !== 'string' ||
-        billingStatus.trim() === ''
-      ) {
-        throw new Error('Invalid data types in CSV')
-      }
+        const lender = r.lender.trim()
+        if (!lender || lender.length < 3) {
+          throw new Error(
+            'Lender is required and must be at least 3 characters long'
+          )
+        }
+        const distributorCode = r.distributorCode.trim()
+        if (!distributorCode || distributorCode.length < 3) {
+          throw new Error(
+            'Distributor code is required and must be at least 3 characters long'
+          )
+        }
+        const anchorId = r.anchorId
+        const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
+        const pendingInvoices = await calculatePendingInvoices(
+          r.distributorCode
+        )
 
-      return {
-        ...r,
-        sanctionLimit,
-        operativeLimit,
-        utilisedLimit,
-        availableLimit,
-        overdue,
-        billingStatus,
-        limitExpiryDate,
-      }
-    })
+        if (!isValid(limitExpiryDate)) {
+          throw new Error(`Invalid date format: ${r.limitExpiryDate}`)
+        }
 
+        // Validation
+        if (
+          isNaN(sanctionLimit) ||
+          isNaN(operativeLimit) ||
+          isNaN(utilisedLimit) ||
+          isNaN(availableLimit) ||
+          isNaN(overdue) ||
+          typeof billingStatus !== 'string' ||
+          billingStatus.trim() === ''
+        ) {
+          throw new Error('Invalid data types in CSV')
+        }
+
+        return {
+          sanctionLimit,
+          operativeLimit,
+          utilisedLimit,
+          availableLimit,
+          overdue,
+          billingStatus,
+          limitExpiryDate,
+          fundingType,
+          anchorId,
+          companyName,
+          city,
+          state,
+          distributorCode,
+          lender,
+          pendingInvoices,
+          currentAvailable: availableLimit - pendingInvoices,
+        }
+      })
+    )
+    // console.log({ toInsert })
     // 5) Database operations with session (All or Nothing)
     const session = await mongoose.startSession()
     try {
@@ -141,7 +202,7 @@ export async function creditLimitCsvParseAndSave(req, res) {
     }
 
     res.json({
-      message: 'File parsed and saved successfully',
+      message: 'data saved successfully',
       insertedCount: insertedDocs.length,
     })
   } catch (err) {
@@ -161,7 +222,7 @@ export async function creditLimitCsvParseAndSave(req, res) {
 
 export const getCreditLimitData = async (req, res) => {
   const user = req.user
-  console.log({ user })
+  // console.log({ user })
   if (user.role === 'superAdmin' || user.role === 'admin') {
     const page = Number(req.query.page || 1)
     const limit = Number(req.query.limit || 10)

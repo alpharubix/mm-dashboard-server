@@ -5,8 +5,9 @@ export const getUsers = async (req, res) => {
   if (user.role === 'superAdmin') {
     const data = await User.find().select('-password')
     res.status(200).json(data)
+  } else {
+    res.status(401).json({ message: 'Forbidden Insufficent role' })
   }
-  res.status(401).json({ message: 'Forbidden Insufficent role' })
 }
 
 export const updateUserRole = async (req, res) => {
