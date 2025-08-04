@@ -64,7 +64,7 @@ export const getInvoiceData = async (req, res) => {
         filter.invoiceDate = dateFilter
       }
 
-      console.log({ filter })
+      // console.log({ filter })
 
       // First get the total count
       const total = await Invoice.countDocuments(filter)

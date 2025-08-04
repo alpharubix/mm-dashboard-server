@@ -1,4 +1,6 @@
+import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
+import { calculatePendingInvoices } from '../../utils/services.js'
 
 export async function invoiceInput(req, res) {
   try {
@@ -39,25 +41,39 @@ export async function invoiceInput(req, res) {
 
     // Check for duplicates in request data
     const invoiceNumbers = invoices.map((inv) => inv.invoiceNumber.trim())
-    const duplicatesInRequest = invoiceNumbers.filter(
-      (num, index) => invoiceNumbers.indexOf(num) !== index
+    const duplicateNumbers = new Set()
+
+    // Find which invoice numbers appear more than once
+    invoiceNumbers.forEach((num, index) => {
+      if (
+        invoiceNumbers.indexOf(num) !== index ||
+        invoiceNumbers.lastIndexOf(num) !== index
+      ) {
+        duplicateNumbers.add(num)
+      }
+    })
+
+    // Filter out ALL invoices with duplicate numbers
+    const uniqueInvoices = invoices.filter(
+      (invoice) => !duplicateNumbers.has(invoice.invoiceNumber.trim())
     )
 
-    if (duplicatesInRequest.length > 0) {
-      return res.status(400).json({
-        error: 'Duplicate invoice number(s) found in the request data',
-        duplicates: [...new Set(duplicatesInRequest)],
-      })
-    }
+    const jsonDuplicatesCount = invoices.length - uniqueInvoices.length
+    const jsonDuplicates = Array.from(duplicateNumbers)
 
     let successCount = 0
     let skippedCount = 0
     const errors = []
     const skippedInvoices = []
 
+    // Get unique invoice numbers for DB check
+    const uniqueInvoiceNumbers = uniqueInvoices.map((inv) =>
+      inv.invoiceNumber.trim()
+    )
+
     // Batch check existing invoices (performance optimization)
     const existingInvoices = await Invoice.find({
-      invoiceNumber: { $in: invoiceNumbers },
+      invoiceNumber: { $in: uniqueInvoiceNumbers },
       anchorId,
     })
       .select('invoiceNumber')
@@ -68,7 +84,7 @@ export async function invoiceInput(req, res) {
     )
 
     // Process invoices
-    for (const invoice of invoices) {
+    for (const invoice of uniqueInvoices) {
       try {
         const invoiceNumber = invoice.invoiceNumber.trim()
 
@@ -89,6 +105,34 @@ export async function invoiceInput(req, res) {
 
         await Invoice.create(invoiceData)
         successCount++
+
+        // Update pending invoices calculation
+        if (invoice.distributorCode) {
+          try {
+            const pendingInvoices = await calculatePendingInvoices(
+              invoice.distributorCode
+            )
+            const creditLimit = await CreditLimit.findOne({
+              distributorCode: invoice.distributorCode,
+            })
+
+            if (creditLimit) {
+              const currentAvailable =
+                creditLimit.availableLimit - pendingInvoices
+
+              await CreditLimit.updateOne(
+                { distributorCode: invoice.distributorCode },
+                { $set: { pendingInvoices, currentAvailable } }
+              )
+            }
+          } catch (updateError) {
+            console.error(
+              'Failed to update pending invoices:',
+              updateError.message
+            )
+            // Don't fail the whole operation, just log the error
+          }
+        }
       } catch (invoiceError) {
         console.error('Invoice creation error:', invoiceError.message)
         errors.push({
@@ -98,18 +142,35 @@ export async function invoiceInput(req, res) {
       }
     }
 
-    res.status(200).json({
-      message: `${successCount} invoice(s) created, ${skippedCount} skipped (already exists)`,
+    // Build comprehensive response
+    const response = {
+      message: `${successCount} invoice(s) created, ${skippedCount} skipped (already exists)${jsonDuplicatesCount > 0 ? `, ${jsonDuplicatesCount} removed (duplicates in request)` : ''}`,
       totalCreated: successCount,
       totalSkipped: skippedCount,
+      totalDuplicatesRemoved: jsonDuplicatesCount,
+      totalProcessed: uniqueInvoices.length,
       totalInvoices: invoices.length,
-      skippedInvoices: skippedInvoices.length > 0 ? skippedInvoices : [],
-      errors: errors.length > 0 ? errors : undefined,
-    })
+    }
+
+    // Add optional arrays only if they have data
+    if (skippedInvoices.length > 0) {
+      response.skippedInvoices = skippedInvoices
+    }
+
+    if (jsonDuplicates.length > 0) {
+      response.duplicatesRemoved = jsonDuplicates
+    }
+
+    if (errors.length > 0) {
+      response.errors = errors
+    }
+
+    res.status(200).json(response)
   } catch (error) {
     console.error('Invoice input error:', error.message)
     res.status(500).json({ error: 'Invoice creation failed' })
   }
 }
 
-// https://claude.ai/chat/6635d129-453b-4942-9c06-d9416a05d4ac
+// v1 https://claude.ai/chat/6635d129-453b-4942-9c06-d9416a05d4ac
+// v2 https://claude.ai/chat/60e01997-1735-4057-84ad-d5461e4a4591

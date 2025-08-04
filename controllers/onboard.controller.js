@@ -165,7 +165,7 @@ export const getOnboardData = async (req, res) => {
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
 
-      console.log('This is the filtered mongo obj', filter)
+      // console.log('This is the filtered mongo obj', filter)
 
       // First get the total count
       const total = await Onboard.countDocuments(filter)
