@@ -5,6 +5,8 @@ import { unlink } from 'fs/promises'
 
 import { Invoice } from '../../models/invoice.model.js'
 import { toCamelCase } from '../../utils/index.js'
+import { CreditLimit } from '../../models/credit-limit.model.js'
+import { calculatePendingInvoices } from '../../utils/services.js'
 
 export async function invoiceCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -109,6 +111,33 @@ export async function invoiceCsvParseAndSave(req, res) {
           update: { $set: updateFields },
         },
       })
+
+      if (r.distributorCode) {
+        try {
+          const pendingInvoices = await calculatePendingInvoices(
+            r.distributorCode
+          )
+          const creditLimit = await CreditLimit.findOne({
+            distributorCode: r.distributorCode,
+          })
+
+          if (creditLimit) {
+            const currentAvailable =
+              creditLimit.availableLimit - pendingInvoices
+
+            await CreditLimit.updateOne(
+              { distributorCode: r.distributorCode },
+              { $set: { pendingInvoices, currentAvailable } }
+            )
+          }
+        } catch (updateError) {
+          console.error(
+            'Failed to update pending invoices:',
+            updateError.message
+          )
+          // Don't fail the whole operation, just log the error
+        }
+      }
     }
 
     let result = { matchedCount: 0, modifiedCount: 0 }
