@@ -1,11 +1,10 @@
 import express from 'express'
-import {
-  getOnboardData,
-  onboardCsvParseAndSave,
-} from '../controllers/onboard.controller.js'
+
 import { validateUser } from '../middlewares/user.middleware.js'
 import { isSuperAdmin } from '../middlewares/role.middleware.js'
 import { uploadCsv } from '../middlewares/file.middleware.js'
+import { onboardCsvParseAndSave } from '../controllers/onboard/onboard.controller.js'
+import { getOnboardData } from '../controllers/onboard/get-onboard.controller.js'
 
 const router = express.Router()
 

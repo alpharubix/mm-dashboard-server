@@ -12,7 +12,7 @@ export const calculatePendingInvoices = async (distributorCode) => {
     {
       $group: {
         _id: null,
-        totalPendingInvoices: { $sum: '$invoiceAmount' },
+        totalPendingInvoices: { $sum: '$loanAmount' },
       },
     },
   ])
