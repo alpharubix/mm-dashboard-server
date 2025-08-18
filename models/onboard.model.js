@@ -9,6 +9,8 @@ const onboardSchema = new mongoose.Schema(
     limitLiveDate: { type: Date, required: true },
     limitExpiryDate: { type: Date, required: true },
     anchorId: { type: String, required: true },
+    distributorPhone: { type: String, required: true },
+    distributorEmail: { type: String, required: true },
     fundingType: { type: String, required: true, enum: ['open', 'close'] },
     status: {
       type: String,

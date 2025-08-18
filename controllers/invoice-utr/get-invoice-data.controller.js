@@ -84,12 +84,23 @@ export const getInvoiceData = async (req, res) => {
 
       const skip = (Number(page) - 1) * Number(limit)
 
-      // Then get the data
-      const data = await Invoice.find(filter, {
+      const projection = {
         createdAt: 0,
         updatedAt: 0,
         __v: 0,
-      })
+      }
+
+      if (user.role === 'admin') {
+        Object.assign(projection, {
+          beneficiaryName: 0,
+          beneficiaryAccNo: 0,
+          bankName: 0,
+          ifscCode: 0,
+          branch: 0,
+        })
+      }
+
+      const data = await Invoice.find(filter, projection)
         .skip(skip)
         .limit(Number(limit))
         .sort({ invoiceDate: -1 })

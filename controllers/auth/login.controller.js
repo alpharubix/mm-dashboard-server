@@ -6,7 +6,9 @@ import { ENV } from '../../conf/index.js'
 export const login = async (req, res) => {
   const { username, password } = req.body
   if (!username || !password)
-    return res.status(400).json({ message: 'Email and password are required' })
+    return res
+      .status(400)
+      .json({ message: 'Username and Password are required' })
 
   const user = await User.findOne({ username })
   if (!user || !(await bcrypt.compare(password, user.password))) {
