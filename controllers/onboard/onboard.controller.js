@@ -17,6 +17,8 @@ export async function onboardCsvParseAndSave(req, res) {
     'anchorId',
     'fundingType',
     'status',
+    'distributorPhone',
+    'distributorEmail',
   ]
 
   if (!req.file?.path) {

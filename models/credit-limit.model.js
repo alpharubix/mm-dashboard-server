@@ -12,6 +12,8 @@ const creditLimit = new mongoose.Schema(
     operativeLimit: { type: Number, required: true },
     utilisedLimit: { type: Number, required: true },
     availableLimit: { type: Number, required: true },
+    distributorPhone: { type: String, required: true },
+    distributorEmail: { type: String, required: true },
     pendingInvoices: { type: Number, required: true }, //Sum of customer's invoice where UTR is blank and Status excluding "Not Processed"
     currentAvailable: { type: Number, required: true }, //(Available Limit - Pending Invoices)
     overdue: { type: Number, required: true },

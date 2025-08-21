@@ -16,6 +16,8 @@ const invoice = new mongoose.Schema(
     loanDisbursementDate: { type: Date, default: null },
     utr: { type: String, default: null },
     anchorId: { type: String, required: true },
+    distributorPhone: { type: String, required: true },
+    distributorEmail: { type: String, required: true },
     fundingType: { type: String, required: true, enum: ['open', 'close'] },
     status: {
       type: String,

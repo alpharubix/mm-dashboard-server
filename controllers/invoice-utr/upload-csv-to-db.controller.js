@@ -25,6 +25,9 @@ export async function invoiceCsvParseAndSave(req, res) {
     'utr',
     'status',
     'anchorId',
+    'distributorPhone',
+    'distributorEmail',
+    'fundingType',
   ]
 
   if (!req.file?.path) {

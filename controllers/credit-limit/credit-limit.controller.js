@@ -24,6 +24,8 @@ export async function creditLimitCsvParseAndSave(req, res) {
     'billingStatus',
     'fundingType',
     'anchorId',
+    'distributorPhone',
+    'distributorEmail',
   ]
 
   if (!req.file?.path) {
