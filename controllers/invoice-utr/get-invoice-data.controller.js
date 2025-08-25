@@ -15,8 +15,8 @@ export const getInvoiceData = async (req, res) => {
         toDate,
         status,
         anchorId,
-        page = 1,
-        limit = 10,
+        page,
+        limit,
       } = req.query
 
       const filter = {}

@@ -1,5 +1,6 @@
 import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
+import { calculateBillingStatus } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 
 export async function invoiceInput(req, res) {
@@ -120,9 +121,13 @@ export async function invoiceInput(req, res) {
               const currentAvailable =
                 creditLimit.availableLimit - pendingInvoices
 
+              const billingStatus = calculateBillingStatus(
+                currentAvailable,
+                creditLimit.overdue
+              )
               await CreditLimit.updateOne(
                 { distributorCode: invoice.distributorCode },
-                { $set: { pendingInvoices, currentAvailable } }
+                { $set: { pendingInvoices, currentAvailable, billingStatus } }
               )
             }
           } catch (updateError) {
