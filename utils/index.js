@@ -37,3 +37,10 @@ export function generateCompanyPassword(companyName) {
 
   return `${short}${randomLetters()}${randomDigits()}`
 }
+
+export function calculateBillingStatus(currentAvailable, overdue) {
+  if (currentAvailable < 0 || overdue > 0) {
+    return 'negative'
+  }
+  return 'positive'
+}

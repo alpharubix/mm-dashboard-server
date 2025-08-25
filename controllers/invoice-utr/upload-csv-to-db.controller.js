@@ -85,6 +85,7 @@ export async function invoiceCsvParseAndSave(req, res) {
       const invoiceAmount = Number(r.invoiceAmount.replace(/,/g, ''))
       const loanAmount = Number(r.loanAmount.replace(/,/g, ''))
       const invoiceDate = parse(r.invoiceDate, 'dd-MM-yy', new Date())
+      const status = r.status.trim()
 
       if (
         isNaN(invoiceAmount) ||
@@ -104,7 +105,25 @@ export async function invoiceCsvParseAndSave(req, res) {
 
       const updateFields = {}
       if (r.utr && r.utr !== 'NA') updateFields.utr = r.utr
-      if (r.status && r.status !== 'NA') updateFields.status = r.status
+
+      if (status && status !== 'NA') {
+        const _status = toCamelCase(status)
+        const validStatuses = [
+          'yetToProcess',
+          'inProgress',
+          'processed',
+          'pendingWithCustomer',
+          'pendingWithLender',
+          'notProcessed',
+        ]
+
+        if (validStatuses.includes(_status)) {
+          updateFields.status = _status
+        } else {
+          throw new Error(`Invalid status in invoice ${r.invoiceNumber}`)
+        }
+      }
+
       if (loanDisbursementDate)
         updateFields.loanDisbursementDate = loanDisbursementDate
 

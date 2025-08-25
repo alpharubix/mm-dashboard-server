@@ -4,7 +4,7 @@ import { unlink } from 'fs/promises'
 import mongoose from 'mongoose'
 
 import { CreditLimit } from '../../models/credit-limit.model.js'
-import { toCamelCase } from '../../utils/index.js'
+import { calculateBillingStatus, toCamelCase } from '../../utils/index.js'
 import { isValid, parse } from 'date-fns'
 import { calculatePendingInvoices } from '../../utils/services.js'
 
@@ -98,12 +98,12 @@ export async function creditLimitCsvParseAndSave(req, res) {
         const utilisedLimit = Number(r.utilisedLimit.replace(/,/g, ''))
         const availableLimit = Number(r.availableLimit.replace(/,/g, ''))
         const overdue = Number(r.overdue.replace(/,/g, ''))
-        const billingStatus = r.billingStatus.trim().toLowerCase()
-        if (!['positive', 'negative'].includes(billingStatus)) {
-          throw new Error(
-            `Invalid billing status: ${billingStatus}. Must be 'positive' or 'negative'.`
-          )
-        }
+        // const billingStatus = r.billingStatus.trim().toLowerCase()
+        // if (!['positive', 'negative'].includes(billingStatus)) {
+        //   throw new Error(
+        //     `Invalid billing status: ${billingStatus}. Must be 'positive' or 'negative'.`
+        //   )
+        // }
         const fundingType = r.fundingType.trim().toLowerCase()
         if (!['open', 'close'].includes(fundingType)) {
           throw new Error(
@@ -173,12 +173,12 @@ export async function creditLimitCsvParseAndSave(req, res) {
           isNaN(operativeLimit) ||
           isNaN(utilisedLimit) ||
           isNaN(availableLimit) ||
-          isNaN(overdue) ||
-          typeof billingStatus !== 'string' ||
-          billingStatus.trim() === ''
+          isNaN(overdue)
         ) {
           throw new Error('Invalid data types in CSV')
         }
+        const currentAvailable = availableLimit - pendingInvoices
+        const billingStatus = calculateBillingStatus(currentAvailable, overdue)
 
         return {
           sanctionLimit,
@@ -198,7 +198,7 @@ export async function creditLimitCsvParseAndSave(req, res) {
           distributorEmail,
           lender,
           pendingInvoices,
-          currentAvailable: availableLimit - pendingInvoices,
+          currentAvailable,
         }
       })
     )
