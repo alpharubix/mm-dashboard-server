@@ -145,6 +145,18 @@ export async function creditLimitCsvParseAndSave(req, res) {
             'Distributor code is required and must be at least 3 characters long'
           )
         }
+        const distributorPhone = r.distributorPhone.trim()
+        if (!distributorPhone || distributorPhone.length !== 10) {
+          throw new Error(
+            'Distributor phone is required and must be 10 characters long'
+          )
+        }
+        const distributorEmail = r.distributorEmail.trim()
+        if (!distributorEmail || distributorEmail.length < 3) {
+          throw new Error(
+            'Distributor email is required and must be at least 3 characters long'
+          )
+        }
         const anchorId = r.anchorId
         const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
         const pendingInvoices = await calculatePendingInvoices(
@@ -182,6 +194,8 @@ export async function creditLimitCsvParseAndSave(req, res) {
           city,
           state,
           distributorCode,
+          distributorPhone,
+          distributorEmail,
           lender,
           pendingInvoices,
           currentAvailable: availableLimit - pendingInvoices,
