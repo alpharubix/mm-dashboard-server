@@ -2,7 +2,6 @@ import { CreditLimit } from '../../models/credit-limit.model.js'
 
 export const getCreditLimitData = async (req, res) => {
   const user = req.user
-  // console.log({ user })
   if (user.role === 'superAdmin' || user.role === 'admin') {
     const page = Number(req.query.page)
     const limit = Number(req.query.limit)
@@ -20,8 +19,6 @@ export const getCreditLimitData = async (req, res) => {
       if (companyName) filter.companyName = new RegExp(companyName, 'i')
       if (distributorCode)
         filter.distributorCode = new RegExp(distributorCode, 'i')
-
-      // console.log('mongodb filter', filter)
 
       // First get the total count
       const total = await CreditLimit.countDocuments(filter)
@@ -50,8 +47,6 @@ export const getCreditLimitData = async (req, res) => {
       })
         .skip(skip)
         .limit(limit)
-
-      // console.log(data)
 
       res.status(200).json({
         message: 'Credit limit data fetched successfully',
