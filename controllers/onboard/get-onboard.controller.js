@@ -3,8 +3,8 @@ import { Onboard } from '../../models/onboard.model.js'
 export const getOnboardData = async (req, res) => {
   const user = req.user
   if (user.role === 'superAdmin' || user.role === 'admin') {
-    const page = Number(req.query.page || 1)
-    const limit = Number(req.query.limit || 10)
+    const page = Number(req.query.page)
+    const limit = Number(req.query.limit)
     const companyName = String(req.query.companyName || '')
     const distributorCode = String(req.query.distributorCode || '')
     const anchorId = String(req.query.anchorId || '')
@@ -51,10 +51,10 @@ export const getOnboardData = async (req, res) => {
       res.status(200).json({
         message: 'Onboard data fetched successfully',
         data,
-        skip,
+        total,
         page,
         totalPages,
-        total,
+        skip,
       })
     } catch (err) {
       console.error(err)

@@ -4,8 +4,8 @@ export const getCreditLimitData = async (req, res) => {
   const user = req.user
   // console.log({ user })
   if (user.role === 'superAdmin' || user.role === 'admin') {
-    const page = Number(req.query.page || 1)
-    const limit = Number(req.query.limit || 10)
+    const page = Number(req.query.page)
+    const limit = Number(req.query.limit)
     const companyName = String(req.query.companyName || '')
     const distributorCode = String(req.query.distributorCode || '')
     const anchorId = String(req.query.anchorId || '')
@@ -56,9 +56,9 @@ export const getCreditLimitData = async (req, res) => {
       res.status(200).json({
         message: 'Credit limit data fetched successfully',
         data,
+        total,
         page,
         totalPages,
-        total,
         skip,
       })
     } catch (err) {
