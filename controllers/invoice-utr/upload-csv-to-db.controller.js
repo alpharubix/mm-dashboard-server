@@ -184,7 +184,7 @@ export async function invoiceCsvParseAndSave(req, res) {
         }
 
         // Handle utr
-        if (normalized.utr) {
+        if (csvFields.includes('utr')) {
           updateFields.utr = normalized.utr
         }
 
