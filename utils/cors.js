@@ -4,6 +4,7 @@ const allowedOrigins = [
   'https://mm-dashboard-client-three.vercel.app',
   'http://localhost:5173',
   'https://invoices.r1xchange.com',
+  'https://mm-dashboard-dev.vercel.app',
   'invoices.r1xchange.com',
 ]
 

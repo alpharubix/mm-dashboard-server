@@ -44,3 +44,5 @@ export function calculateBillingStatus(currentAvailable, overdue) {
   }
   return 'positive'
 }
+
+export const isValidPhone = (str) => /^\d{10}$/.test(str)

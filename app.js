@@ -1,12 +1,12 @@
 import express from 'express'
-import corsMiddleware from './utils/cors.js'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import corsMiddleware from './utils/cors.js'
 
 import authRoutes from './routes/auth.route.js'
-import onboardRoutes from './routes/onboard.route.js'
 import creditLimitRoutes from './routes/credit-limit.route.js'
 import invoiceRoutes from './routes/invoice.route.js'
+import onboardRoutes from './routes/onboard.route.js'
 import userRoutes from './routes/user.route.js'
 import viewerRoutes from './routes/viewer.route.js'
 

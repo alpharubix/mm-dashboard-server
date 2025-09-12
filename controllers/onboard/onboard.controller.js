@@ -4,7 +4,7 @@ import fs from 'fs'
 import { unlink } from 'fs/promises'
 
 import { Onboard } from '../../models/onboard.model.js'
-import { toCamelCase } from '../../utils/index.js'
+import { isValidPhone, toCamelCase } from '../../utils/index.js'
 
 export async function onboardCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -46,9 +46,20 @@ export async function onboardCsvParseAndSave(req, res) {
     }
 
     // 2) Header validation
-    const csvFields = Object.keys(rows[0])
+    // Remove completely empty rows first
+    const nonEmptyRows = rows.filter((r) =>
+      Object.values(r).some((v) => v?.trim?.() !== '')
+    )
+
+    if (!nonEmptyRows.length) {
+      return res.status(400).json({ message: 'CSV has no valid rows' })
+    }
+
+    // Use first valid row for header validation
+    const csvFields = Object.keys(nonEmptyRows[0])
     const missing = requiredFields.filter((f) => !csvFields.includes(f))
     const extra = csvFields.filter((f) => !requiredFields.includes(f))
+
     if (missing.length || extra.length) {
       return res.status(400).json({
         message: 'CSV header mismatch',
@@ -58,7 +69,10 @@ export async function onboardCsvParseAndSave(req, res) {
     }
 
     // 3) Check for duplicate distributorCodes within CSV
-    const distributorCodesInCSV = rows.map((r) => r.distributorCode)
+    const distributorCodesInCSV = nonEmptyRows
+      .map((r) => r.distributorCode?.trim())
+      .filter((code) => code)
+
     const duplicateCodesInCSV = distributorCodesInCSV.filter(
       (item, index) => distributorCodesInCSV.indexOf(item) !== index
     )
@@ -79,11 +93,30 @@ export async function onboardCsvParseAndSave(req, res) {
     )
 
     // 5) Cast & prepare documents
-    const bulkOps = rows.map((r) => {
+    const bulkOps = nonEmptyRows.map((r) => {
+      const companyName = r.companyName.trim()
+      const distributorCode = Number(r.distributorCode)
+      const lender = r.lender.trim()
+      const anchorId = r.anchorId.trim()
+
+      const fundingType = r.fundingType?.trim().toLowerCase()
+      if (fundingType !== 'open' && fundingType !== 'close') {
+        throw new Error(`Invalid funding type: ${r.fundingType || '(missing)'}`)
+      }
+      if (!isValidPhone(r.distributorPhone.trim())) {
+        throw new Error(`Invalid phone number format: ${r.distributorPhone}`)
+      }
+      const distributorPhone = r.distributorPhone.trim()
+      const distributorEmail = r.distributorEmail.trim()
+
       const sanctionLimit = Number(r.sanctionLimit.replace(/,/g, ''))
       const limitLiveDate = parse(r.limitLiveDate, 'dd-MM-yy', new Date())
       const limitExpiryDate = parse(r.limitExpiryDate, 'dd-MM-yy', new Date())
-      const status = r.status
+
+      const status = r.status?.trim().toLowerCase()
+      if (status !== 'active' && status !== 'inactive') {
+        throw new Error(`Invalid status: ${r.status || '(missing)'}`)
+      }
 
       if (!isValid(limitLiveDate)) {
         throw new Error(`Invalid date format: ${r.limitLiveDate}`)
@@ -102,17 +135,24 @@ export async function onboardCsvParseAndSave(req, res) {
       }
 
       const document = {
-        ...r,
+        companyName,
+        distributorCode,
+        lender,
+        anchorId,
+        fundingType,
+        distributorPhone,
+        distributorEmail,
         sanctionLimit,
         limitLiveDate,
         limitExpiryDate,
         status,
       }
 
-      if (existingCodesSet.has(r.distributorCode)) {
+      // 6) Check for existing distributorCode and update if found, else insert
+      if (existingCodesSet.has(distributorCode)) {
         return {
           updateOne: {
-            filter: { distributorCode: r.distributorCode },
+            filter: { distributorCode: distributorCode },
             update: { $set: document },
           },
         }

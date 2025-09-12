@@ -3,12 +3,36 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
+import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 import { toCamelCase } from '../../utils/index.js'
-import { CreditLimit } from '../../models/credit-limit.model.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 
+// Standardized null values
+const NULL_VALUES = [
+  '',
+  'NA',
+  'N/A',
+  'NULL',
+  'null',
+  '-',
+  'nil',
+  'none',
+  0,
+  '0',
+  '.',
+  '_',
+]
+
+function normalizeValue(value) {
+  if (typeof value !== 'string') return value
+
+  const trimmed = value.trim()
+  return NULL_VALUES.includes(trimmed) ? null : trimmed
+}
+
 export async function invoiceCsvParseAndSave(req, res) {
+  // All required CSV fields (for header validation)
   const requiredFields = [
     'companyName',
     'distributorCode',
@@ -30,11 +54,28 @@ export async function invoiceCsvParseAndSave(req, res) {
     'fundingType',
   ]
 
+  // Fields that will be updated in database
+  const updateableFields = [
+    'loanDisbursementDate',
+    'utr',
+    'status',
+    'loanAmount',
+  ]
+
   if (!req.file?.path) {
     return res.status(400).json({ message: 'No file uploaded' })
   }
+
+  // File size check - 15MB limit
+  if (req.file.size > 15 * 1024 * 1024) {
+    return res
+      .status(400)
+      .json({ message: 'File too large. Maximum size is 15MB' })
+  }
+
   const filePath = req.file.path
   const rows = []
+  let currentRowNumber = 0
 
   try {
     // 1) Parse CSV into rows[]
@@ -45,7 +86,10 @@ export async function invoiceCsvParseAndSave(req, res) {
             mapHeaders: ({ header }) => toCamelCase(header),
           })
         )
-        .on('data', (row) => rows.push(row))
+        .on('data', (row) => {
+          currentRowNumber++
+          rows.push({ ...row, _rowNumber: currentRowNumber })
+        })
         .on('end', resolve)
         .on('error', reject)
     })
@@ -54,130 +98,228 @@ export async function invoiceCsvParseAndSave(req, res) {
       return res.status(400).json({ message: 'CSV is empty' })
     }
 
-    // 2) Header validation
-    const csvFields = Object.keys(rows[0])
+    // 2) Header validation - check all required fields are present, ignore extra fields
+    const csvFields = Object.keys(rows[0]).filter(
+      (field) => field !== '_rowNumber'
+    )
     const missing = requiredFields.filter((f) => !csvFields.includes(f))
-    const extra = csvFields.filter((f) => !requiredFields.includes(f))
-    if (missing.length || extra.length) {
+
+    if (missing.length > 0) {
       return res.status(400).json({
-        message: 'CSV header mismatch',
+        message: 'Missing required fields in CSV',
         missingFields: missing,
-        extraFields: extra,
+        requiredFields: requiredFields,
       })
     }
 
-    // 3) Check for duplicate invoiceNumbers
-    const invoiceNumbers = rows.map((r) => r.invoiceNumber)
+    // 3) Check for duplicate invoiceNumbers within CSV
+    const invoiceNumbers = rows
+      .map((r) => r.invoiceNumber?.toString()?.trim())
+      .filter(Boolean)
     const duplicatesInCSV = invoiceNumbers.filter(
       (item, index) => invoiceNumbers.indexOf(item) !== index
     )
     if (duplicatesInCSV.length) {
       return res.status(400).json({
-        message: 'Duplicate invoiceNumbers in CSV',
+        message: 'Duplicate invoiceNumbers found in CSV',
         duplicates: [...new Set(duplicatesInCSV)],
       })
     }
 
-    // 5) Cast & update
+    // 4) Process and validate each row
     const updateOps = []
+    const processingErrors = []
+    const skippedRows = []
 
     for (const r of rows) {
-      const invoiceAmount = Number(r.invoiceAmount.replace(/,/g, ''))
-      const loanAmount = Number(r.loanAmount.replace(/,/g, ''))
-      const invoiceDate = parse(r.invoiceDate, 'dd-MM-yy', new Date())
-      const status = r.status.trim()
+      try {
+        // Normalize all values first
+        const normalized = {}
+        Object.keys(r).forEach((key) => {
+          if (key !== '_rowNumber') {
+            normalized[key] = normalizeValue(r[key])
+          }
+        })
 
-      if (
-        isNaN(invoiceAmount) ||
-        isNaN(loanAmount) ||
-        isNaN(invoiceDate.getTime())
-      ) {
-        throw new Error(`Invalid data in invoice ${r.invoiceNumber}`)
-      }
-
-      let loanDisbursementDate = null
-      if (r.loanDisbursementDate && r.loanDisbursementDate !== 'NA') {
-        const parsed = parse(r.loanDisbursementDate, 'dd-MM-yy', new Date())
-        if (!isNaN(parsed.getTime())) {
-          loanDisbursementDate = parsed
+        // Required fields validation
+        if (!normalized.invoiceNumber) {
+          throw new Error(`Invoice number is required`)
         }
-      }
 
-      const updateFields = {}
-      if (r.utr && r.utr !== 'NA') updateFields.utr = r.utr
-
-      if (status && status !== 'NA') {
-        const _status = toCamelCase(status)
-        const validStatuses = [
-          'yetToProcess',
-          'inProgress',
-          'processed',
-          'pendingWithCustomer',
-          'pendingWithLender',
-          'notProcessed',
-        ]
-
-        if (validStatuses.includes(_status)) {
-          updateFields.status = _status
-        } else {
-          throw new Error(`Invalid status in invoice ${r.invoiceNumber}`)
+        if (!normalized.distributorCode) {
+          throw new Error(`Distributor code is required`)
         }
-      }
 
-      if (loanDisbursementDate)
-        updateFields.loanDisbursementDate = loanDisbursementDate
+        // Build update fields - only the fields we want to update
+        const updateFields = {}
 
-      updateOps.push({
-        updateOne: {
-          filter: { invoiceNumber: r.invoiceNumber },
-          update: { $set: updateFields },
-        },
-      })
+        // Handle loanAmount
+        if (normalized.loanAmount) {
+          const cleanAmount = normalized.loanAmount
+            .toString()
+            .replace(/,/g, '')
+            .trim()
+          const loanAmount = Number(cleanAmount)
 
-      if (r.distributorCode) {
-        try {
-          const pendingInvoices = await calculatePendingInvoices(
-            r.distributorCode
+          if (Number.isNaN(loanAmount) || loanAmount <= 0) {
+            throw new Error(`Invalid loan amount: "${normalized.loanAmount}"`)
+          }
+          updateFields.loanAmount = loanAmount
+        }
+
+        // Handle loanDisbursementDate
+        if (normalized.loanDisbursementDate) {
+          const loanDate = parse(
+            normalized.loanDisbursementDate,
+            'dd-MM-yy',
+            new Date()
           )
-          const creditLimit = await CreditLimit.findOne({
-            distributorCode: r.distributorCode,
-          })
-
-          if (creditLimit) {
-            const currentAvailable =
-              creditLimit.availableLimit - pendingInvoices
-
-            await CreditLimit.updateOne(
-              { distributorCode: r.distributorCode },
-              { $set: { pendingInvoices, currentAvailable } }
+          if (!Number.isNaN(loanDate.getTime())) {
+            updateFields.loanDisbursementDate = loanDate
+          } else {
+            throw new Error(
+              `Invalid loan disbursement date format: "${normalized.loanDisbursementDate}". Use dd-MM-yy`
             )
           }
-        } catch (updateError) {
-          console.error(
-            'Failed to update pending invoices:',
-            updateError.message
-          )
-          // Don't fail the whole operation, just log the error
+        }
+
+        // Handle utr
+        if (csvFields.includes('utr')) {
+          updateFields.utr = normalized.utr
+        }
+
+        // Handle status
+        if (normalized.status) {
+          const _status = toCamelCase(normalized.status)
+          const validStatuses = [
+            'yetToProcess',
+            'inProgress',
+            'processed',
+            'pendingWithCustomer',
+            'pendingWithLender',
+            'notProcessed',
+          ]
+
+          if (validStatuses.includes(_status)) {
+            updateFields.status = _status
+          } else {
+            throw new Error(
+              `Invalid status: "${normalized.status}". Valid options: ${validStatuses.join(', ')}`
+            )
+          }
+        }
+
+        // Only proceed if we have fields to update
+        if (Object.keys(updateFields).length === 0) {
+          skippedRows.push({
+            invoiceNumber: normalized.invoiceNumber,
+            rowNumber: r._rowNumber,
+            reason: `No valid update fields found. Expected: ${updateableFields.join(', ')}`,
+          })
+          continue
+        }
+
+        updateOps.push({
+          updateOne: {
+            filter: { invoiceNumber: normalized.invoiceNumber },
+            update: { $set: updateFields },
+          },
+        })
+
+        // Update credit limit if distributorCode exists
+        if (normalized.distributorCode) {
+          try {
+            const pendingInvoices = await calculatePendingInvoices(
+              normalized.distributorCode
+            )
+            const creditLimit = await CreditLimit.findOne({
+              distributorCode: normalized.distributorCode,
+            })
+
+            if (creditLimit) {
+              const currentAvailable =
+                creditLimit.availableLimit - pendingInvoices
+
+              await CreditLimit.updateOne(
+                { distributorCode: normalized.distributorCode },
+                { $set: { pendingInvoices, currentAvailable } }
+              )
+            }
+          } catch (updateError) {
+            console.error(
+              `Failed to update credit limit for invoice ${normalized.invoiceNumber}:`,
+              updateError.message
+            )
+            // Don't fail the whole operation, just log the error
+          }
+        }
+      } catch (error) {
+        processingErrors.push({
+          invoiceNumber: r.invoiceNumber || 'Unknown',
+          rowNumber: r._rowNumber,
+          error: error.message,
+        })
+      }
+    }
+
+    // 5) Execute bulk operations
+    let result = { matchedCount: 0, modifiedCount: 0 }
+    if (updateOps.length > 0) {
+      try {
+        result = await Invoice.bulkWrite(updateOps, { ordered: false })
+      } catch (bulkError) {
+        console.error('Bulk write error:', bulkError)
+        // Extract individual errors if available
+        if (bulkError.writeErrors) {
+          bulkError.writeErrors.forEach((err) => {
+            const failedOp = updateOps[err.index]
+            const invoiceNumber =
+              failedOp?.updateOne?.filter?.invoiceNumber || 'Unknown'
+            processingErrors.push({
+              invoiceNumber: invoiceNumber,
+              rowNumber: 'Unknown',
+              error: err.errmsg || 'Database write error',
+            })
+          })
         }
       }
     }
 
-    let result = { matchedCount: 0, modifiedCount: 0 }
-    if (updateOps.length) {
-      result = await Invoice.bulkWrite(updateOps, { ordered: false })
-    }
+    // 6) Prepare response
+    const totalRows = rows.length
+    const successfulRows = result.modifiedCount || 0
+    const errorCount = processingErrors.length
+    const skippedCount = skippedRows.length
+    const notFoundCount = Math.max(0, updateOps.length - result.matchedCount)
 
-    // 6) Final response
-    res.json({
-      message: 'File parsed and updated successfully',
+    const response = {
+      message: `File processed. ${successfulRows} updated, ${errorCount} errors, ${skippedCount} skipped, ${notFoundCount} not found in database.`,
+      totalRows,
+      successfulRows,
+      errorCount,
+      skippedCount,
+      notFoundCount,
       matchedCount: result.matchedCount,
       modifiedCount: result.modifiedCount,
-    })
+    }
+
+    if (errorCount > 0) {
+      response.errors = processingErrors
+    }
+
+    if (skippedCount > 0) {
+      response.skippedRows = skippedRows
+    }
+
+    // Return appropriate status code
+    const hasIssues = errorCount > 0 || skippedCount > 0 || notFoundCount > 0
+    res.status(hasIssues ? 207 : 200).json(response)
   } catch (err) {
-    console.error('Error processing CSV and saving data:', err)
-    res
-      .status(500)
-      .json({ message: 'Failed to process CSV', error: err.message })
+    console.error('Error processing CSV:', err)
+    res.status(500).json({
+      message: 'Failed to process CSV file',
+      error: err.message,
+    })
   } finally {
     try {
       await unlink(filePath)
