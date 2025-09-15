@@ -17,6 +17,7 @@ export const getInvoiceData = async (req, res) => {
         anchorId,
         page = 1,
         limit = 10,
+        export: isExport,
       } = req.query
 
       const filter = {}
@@ -68,6 +69,30 @@ export const getInvoiceData = async (req, res) => {
 
       // First get the total count
       const total = await Invoice.countDocuments(filter)
+
+      if (isExport === 'true') {
+        const exportLimit = 500
+
+        if (total > exportLimit) {
+          return res.status(400).json({
+            message: `Export limit exceeded. Maximum ${exportLimit} records allowed. Current result: ${total} records. Please refine your filters.`,
+            total,
+            limit: exportLimit,
+          })
+        }
+
+        const data = await Invoice.find(filter)
+          .sort({ invoiceDate: -1 })
+          .limit(exportLimit) // Safety limit
+
+        return res.status(200).json({
+          message: 'Invoice data fetched successfully',
+          data,
+          total,
+          isExport: true,
+        })
+      }
+
       const totalPages = Math.ceil(total / Number(limit))
 
       // Then validate page number

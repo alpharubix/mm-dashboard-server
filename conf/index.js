@@ -15,3 +15,19 @@ export const ENV = {
   CLIENT_EMAIL: String(process.env.CLIENT_EMAIL),
   BUCKET_NAME: String(process.env.BUCKET_NAME),
 }
+
+export const NULL_VALUES = [
+  null,
+  '',
+  'NA',
+  'N/A',
+  'NULL',
+  'null',
+  '-',
+  'nil',
+  'none',
+  0,
+  '0',
+  '.',
+  '_',
+]

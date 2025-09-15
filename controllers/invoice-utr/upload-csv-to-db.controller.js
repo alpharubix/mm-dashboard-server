@@ -3,26 +3,11 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
+import { NULL_VALUES } from '../../conf/index.js'
 import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 import { toCamelCase } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
-
-// Standardized null values
-const NULL_VALUES = [
-  '',
-  'NA',
-  'N/A',
-  'NULL',
-  'null',
-  '-',
-  'nil',
-  'none',
-  0,
-  '0',
-  '.',
-  '_',
-]
 
 function normalizeValue(value) {
   if (typeof value !== 'string') return value
