@@ -1,5 +1,5 @@
 import csvParser from 'csv-parser'
-import { parse, isValid } from 'date-fns'
+import { isValid, parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
@@ -47,29 +47,26 @@ export async function onboardCsvParseAndSave(req, res) {
 
     // 2) Header validation
     // Remove completely empty rows first
-    const nonEmptyRows = rows.filter((r) =>
+    const validRows = rows.filter((r) =>
       Object.values(r).some((v) => v?.trim?.() !== '')
     )
-
-    if (!nonEmptyRows.length) {
+    if (!validRows.length) {
       return res.status(400).json({ message: 'CSV has no valid rows' })
     }
 
     // Use first valid row for header validation
-    const csvFields = Object.keys(nonEmptyRows[0])
+    const csvFields = Object.keys(validRows[0])
     const missing = requiredFields.filter((f) => !csvFields.includes(f))
-    const extra = csvFields.filter((f) => !requiredFields.includes(f))
 
-    if (missing.length || extra.length) {
+    if (missing.length) {
       return res.status(400).json({
         message: 'CSV header mismatch',
         missingFields: missing,
-        extraFields: extra,
       })
     }
 
     // 3) Check for duplicate distributorCodes within CSV
-    const distributorCodesInCSV = nonEmptyRows
+    const distributorCodesInCSV = validRows
       .map((r) => r.distributorCode?.trim())
       .filter((code) => code)
 
@@ -93,9 +90,9 @@ export async function onboardCsvParseAndSave(req, res) {
     )
 
     // 5) Cast & prepare documents
-    const bulkOps = nonEmptyRows.map((r) => {
+    const bulkOps = validRows.map((r) => {
       const companyName = r.companyName.trim()
-      const distributorCode = Number(r.distributorCode)
+      const distributorCode = String(r.distributorCode)
       const lender = r.lender.trim()
       const anchorId = r.anchorId.trim()
 
