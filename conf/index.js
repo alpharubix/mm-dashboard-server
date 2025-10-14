@@ -14,6 +14,7 @@ export const ENV = {
   PRIVATE_KEY: String(process.env.PRIVATE_KEY),
   CLIENT_EMAIL: String(process.env.CLIENT_EMAIL),
   BUCKET_NAME: String(process.env.BUCKET_NAME),
+  ZOHO_APP_PASSWORD: String(process.env.ZOHO_APP_PASSWORD),
 }
 
 export const NULL_VALUES = [

@@ -5,6 +5,7 @@ import corsMiddleware from './utils/cors.js'
 
 import authRoutes from './routes/auth.route.js'
 import creditLimitRoutes from './routes/credit-limit.route.js'
+import emailRoutes from './routes/email.route.js'
 import invoiceRoutes from './routes/invoice.route.js'
 import onboardRoutes from './routes/onboard.route.js'
 import userRoutes from './routes/user.route.js'
@@ -17,6 +18,7 @@ const routes = [
   invoiceRoutes,
   userRoutes,
   viewerRoutes,
+  emailRoutes,
 ]
 
 export const app = express()
