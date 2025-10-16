@@ -103,7 +103,7 @@ export async function invoiceInput(req, res) {
           anchorId,
           fundingType: 'close',
         }
-
+        console.log('Logging invoice after ', invoiceData)
         await Invoice.create(invoiceData)
         successCount++
 

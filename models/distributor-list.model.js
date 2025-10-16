@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const distributorWithOneLimit = new mongoose.Schema(
+const allowedDistributor = new mongoose.Schema(
   {
     companyName: { type: String, required: true },
     distributorCode: { type: String, required: true },
@@ -15,7 +15,4 @@ const distributorWithOneLimit = new mongoose.Schema(
   }
 )
 
-export const Distributor = mongoose.model(
-  'Distributor',
-  distributorWithOneLimit
-)
+export const Distributor = mongoose.model('Distributor', allowedDistributor)
