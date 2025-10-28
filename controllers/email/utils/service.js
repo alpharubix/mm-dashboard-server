@@ -37,11 +37,15 @@ export async function isDistributorHasOverdue(distCode) {
     }
   }
 }
-export async function updateInvoiceStatus(invoices, statusToBeUpdated) {
+export async function updateInvoiceStatus(
+  invoices,
+  statusToBeUpdated,
+  fieldName
+) {
   if (typeof invoices == 'string') {
     const updateResult = await Invoice.findOneAndUpdate(
       { invoiceNumber: invoices },
-      { $set: { status: statusToBeUpdated } }
+      { $set: { [fieldName]: statusToBeUpdated } }
     )
     return updateResult
   }
@@ -50,7 +54,7 @@ export async function updateInvoiceStatus(invoices, statusToBeUpdated) {
     const invoiceNumbers = invoices.map((i) => i.invoiceNumber)
     const result = await Invoice.updateMany(
       { invoiceNumber: { $in: invoiceNumbers } },
-      { $set: { status: statusToBeUpdated } }
+      { $set: { [fieldName]: statusToBeUpdated } }
     )
     return result // returns { acknowledged: true, matchedCount, modifiedCount }
   }

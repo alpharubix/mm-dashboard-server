@@ -99,8 +99,8 @@ export async function invoiceInput(req, res) {
           continue
         }
         console.log('Logging invoice before', invoice)
-        let emailStatus = 'notEligible' // Set default status
-
+        let emailStatus = 'notEligible' // Set default emailstatus
+        let updatedStatus = 'yetToProcess' //set default status
         const distributorCode = invoice.distributorCode
 
         // Check whitelisting status first
@@ -113,6 +113,9 @@ export async function invoiceInput(req, res) {
 
           // Determine the final status
           emailStatus = hasOverdue ? 'overdue' : 'eligible'
+          if (hasOverdue) {
+            updatedStatus = 'pendingWithCustomer'
+          }
         }
         // emailStatus is now correctly set to 'notEligible', 'overdue', or 'eligible'
         // Create invoice with controlled data
@@ -122,9 +125,10 @@ export async function invoiceInput(req, res) {
           anchorId,
           fundingType: 'close',
           emailStatus,
+          status: updatedStatus,
         }
         console.log('Logging invoice after ', invoiceData)
-        //  await Invoice.create(invoiceData)
+        await Invoice.create(invoiceData)
         successCount++
 
         // Update pending invoices calculation

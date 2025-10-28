@@ -55,38 +55,40 @@ export default async function sendEmail(req, res) {
         invoiceNumber
       )
       if (isBalanceAvailable) {
+        //send the mail and update both the status and email status of that particular invoice
         return res.status(200).json({
           message: `Email sent successfully for this invoiceNumber-${invoiceNumber}`,
         })
       } else {
         //step 6 b=> if the available limit is lesser than the total amount dont send the mail update the invoice status
-        await updateInvoiceStatus(invoiceNumber, 'pendingWithCustomer')
+        //ad-hoc polymorphism single function behaves differently when called with different parameters
+        await updateInvoiceStatus(
+          invoiceNumber,
+          'pendingWithCustomer',
+          'status'
+        )
+        await updateInvoiceStatus(
+          invoiceNumber,
+          'insufficientAvailableLimit',
+          'emailStatus'
+        )
         return res.status(403).json({
           message: `unable to send mail kindly check the available-limit for the distributor - ${distCode}`,
         })
       }
-    } else {
-      //step=>7 if distributor has overdue update status of the fetched invoices from the step-2
-      const updateResult = await updateInvoiceStatus(
-        invoices,
-        'pendingWithCustomer'
-      )
-      return res.status(403).json({
-        message: `unable to send mail kindly check the overdue for this distributor - ${distCode} `,
-      })
     }
   } catch (error) {
-    // const { from, to, subject, body } = req.body
-    // const transporter = createSmtpConnection()
-    // console.log({ transporter })
-    // if (transporter) {
-    //   await sendEmail(transporter, from, to, subject, body)
-    //   return res.json({ msg: 'Sent successfully' })
-    // } else {
-    //   return res.json({ msg: 'Not Sent' })
-    // }
     return res
       .status(500)
       .json({ message: 'Failed to process the email', error: error.message })
   }
+  // const { from, to, subject, body } = req.body
+  // const transporter = createSmtpConnection()
+  // console.log({ transporter })
+  // if (transporter) {
+  //   await sendEmail(transporter, from, to, subject, body)
+  //   return res.json({ msg: 'Sent successfully' })
+  // } else {
+  //   return res.json({ msg: 'Not Sent' })
+  // }
 }
