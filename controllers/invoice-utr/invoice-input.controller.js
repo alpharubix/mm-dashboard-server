@@ -2,7 +2,10 @@ import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 import { calculateBillingStatus } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
-
+import {
+  isDistributorAllowed,
+  isDistributorHasOverdue,
+} from '../email/utils/service.js'
 export async function invoiceInput(req, res) {
   try {
     if (req.user.role !== 'admin') {
@@ -95,17 +98,33 @@ export async function invoiceInput(req, res) {
           skippedInvoices.push(invoiceNumber)
           continue
         }
+        console.log('Logging invoice before', invoice)
+        let emailStatus = 'notEligible' // Set default status
 
+        const distributorCode = invoice.distributorCode
+
+        // Check whitelisting status first
+        if (await isDistributorAllowed(distributorCode)) {
+          // If whitelisted, check the overdue status once and store the result
+          const hasOverdue = await isDistributorHasOverdue(distributorCode)
+
+          // Log the result as in your original code
+          console.log('overdue-check-result', hasOverdue)
+
+          // Determine the final status
+          emailStatus = hasOverdue ? 'overdue' : 'eligible'
+        }
+        // emailStatus is now correctly set to 'notEligible', 'overdue', or 'eligible'
         // Create invoice with controlled data
         const invoiceData = {
           ...invoice,
           invoiceNumber,
           anchorId,
           fundingType: 'close',
+          emailStatus,
         }
         console.log('Logging invoice after ', invoiceData)
-
-        // await Invoice.create(invoiceData)
+        //  await Invoice.create(invoiceData)
         successCount++
 
         // Update pending invoices calculation

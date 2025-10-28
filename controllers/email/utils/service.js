@@ -25,16 +25,15 @@ export async function isDistributorHasOverdue(distCode) {
     { distributorCode: distCode },
     { overdue: 1 }
   )
-  console.log(overdueAmount)
   if (!overdueAmount) {
     throw new Error(
       `CreditLimit record not found for distributor code: ${distCode}`
     )
   } else {
     if (overdueAmount.overdue == 0) {
-      return true
-    } else {
       return false
+    } else {
+      return true
     }
   }
 }
