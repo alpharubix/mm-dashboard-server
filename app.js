@@ -10,7 +10,7 @@ import invoiceRoutes from './routes/invoice.route.js'
 import onboardRoutes from './routes/onboard.route.js'
 import userRoutes from './routes/user.route.js'
 import viewerRoutes from './routes/viewer.route.js'
-import distributorRoutes from './routes/whitelisted-distributors.route.js'
+import distributorRoutes from './routes/whitelist-dist.route.js'
 
 const routes = [
   authRoutes,

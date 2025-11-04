@@ -1,11 +1,15 @@
+import { EMAIL_STATUS, INV_STATUS } from '../../conf/index.js'
+
 import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
+
 import { calculateBillingStatus } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 import {
   isDistributorAllowed,
   isDistributorHasOverdue,
 } from '../email/utils/service.js'
+
 export async function invoiceInput(req, res) {
   try {
     if (req.user.role !== 'admin') {
@@ -99,8 +103,8 @@ export async function invoiceInput(req, res) {
           continue
         }
         console.log('Logging invoice before', invoice)
-        let emailStatus = 'notEligible' // Set default emailstatus
-        let updatedStatus = 'yetToProcess' //set default status
+        let emailStatus = EMAIL_STATUS.NOT_ELIGIBLE // Set default emailstatus
+        let updatedStatus = INV_STATUS.YET_TO_PROCESS //set default status
         const distributorCode = invoice.distributorCode
 
         // Check whitelisting status first
@@ -112,9 +116,11 @@ export async function invoiceInput(req, res) {
           console.log('overdue-check-result', hasOverdue)
 
           // Determine the final status
-          emailStatus = hasOverdue ? 'overdue' : 'eligible'
+          emailStatus = hasOverdue
+            ? EMAIL_STATUS.OVERDUE
+            : EMAIL_STATUS.ELIGIBLE
           if (hasOverdue) {
-            updatedStatus = 'pendingWithCustomer'
+            updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
           }
         }
         // emailStatus is now correctly set to 'notEligible', 'overdue', or 'eligible'

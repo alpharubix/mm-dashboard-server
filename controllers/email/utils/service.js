@@ -1,6 +1,7 @@
+import { INV_STATUS } from '../../../conf/index.js'
+import { CreditLimit } from '../../../models/credit-limit.model.js'
 import { Distributor } from '../../../models/distributor-list.model.js'
 import { Invoice } from '../../../models/invoice.model.js'
-import { CreditLimit } from '../../../models/credit-limit.model.js'
 
 export async function isDistributorAllowed(distCode) {
   const distributor = await Distributor.findOne({ distributorCode: distCode })
@@ -14,7 +15,7 @@ export async function getInvoices(distCode) {
   const invoices = await Invoice.find({
     distributorCode: distCode,
     status: {
-      $in: ['inProgress', 'pendingWithCustomer'],
+      $in: [INV_STATUS.IN_PROGRESS, INV_STATUS.PENDING_WITH_CUSTOMER],
     },
   })
   return invoices
@@ -66,7 +67,7 @@ export async function isAvailableBalanceGreater(
   invoiceNumber
 ) {
   let totalLoanAmount = 0
-  if (invoices.length != 0) {
+  if (invoices.length !== 0) {
     invoices.forEach((invoice) => {
       totalLoanAmount += invoice.loanAmount
     })
@@ -76,14 +77,14 @@ export async function isAvailableBalanceGreater(
         { availableLimit: 1 }
       )
     ).availableLimit
-    console.log('Available limit=>', availableLimit)
+    // console.log('Available limit=>', availableLimit)
     const invoiceLoanAmount = (
       await Invoice.findOne({ invoiceNumber: invoiceNumber }, { loanAmount: 1 })
     ).loanAmount
-    console.log('InvoiceLoanAmount', invoiceLoanAmount)
-    console.log('TotaLoanAmount=>', totalLoanAmount)
+    // console.log('InvoiceLoanAmount', invoiceLoanAmount)
+    // console.log('TotaLoanAmount=>', totalLoanAmount)
     let actualAvailableLimit = availableLimit - totalLoanAmount
-    console.log('Actual available limit', actualAvailableLimit)
+    // console.log('Actual available limit', actualAvailableLimit)
     return actualAvailableLimit >= invoiceLoanAmount
   } else {
     const invoiceLoanAmount = (
@@ -95,8 +96,8 @@ export async function isAvailableBalanceGreater(
         { availableLimit: 1 }
       )
     ).availableLimit
-    console.log(invoiceLoanAmount, availableLimit)
-    console.log(availableLimit >= invoiceLoanAmount)
+    // console.log(invoiceLoanAmount, availableLimit)
+    // console.log(availableLimit >= invoiceLoanAmount)
     return availableLimit >= invoiceLoanAmount
   }
 }
