@@ -1,4 +1,5 @@
 import converter from 'json-2-csv'
+import juice from 'juice'
 import nodemailer from 'nodemailer'
 import { EMAIL_STATUS, ENV, INV_STATUS } from '../../conf/index.js'
 import { Invoice } from '../../models/invoice.model.js'
@@ -9,12 +10,26 @@ import {
 } from './utils/service.js'
 
 async function _sendEmail(transporter, from, to, cc, subject, html) {
+  const inlinedHtml = juice(`
+    <style>
+      table, th, td {
+        border: 1px solid #000;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 2px;
+        text-align: center;
+      }
+    </style>
+    ${html}
+  `)
   const mailOptions = {
     from: from,
     to: to,
     cc: cc,
     subject: subject,
-    html: html,
+    html: inlinedHtml,
+    // attachment: null
   }
 
   try {
