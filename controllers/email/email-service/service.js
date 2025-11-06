@@ -2,6 +2,7 @@ import { INV_STATUS } from '../../../conf/index.js'
 import { CreditLimit } from '../../../models/credit-limit.model.js'
 import { Distributor } from '../../../models/distributor-list.model.js'
 import { Invoice } from '../../../models/invoice.model.js'
+import { EmailTemplate } from '../../../models/email-template.model.js'
 
 export async function isDistributorAllowed(distCode) {
   const distributor = await Distributor.findOne({ distributorCode: distCode })
@@ -100,4 +101,66 @@ export async function isAvailableBalanceGreater(
     // console.log(availableLimit >= invoiceLoanAmount)
     return availableLimit >= invoiceLoanAmount
   }
+}
+
+export async function getLenderTemplate(distCode) {
+  const lenderName = (
+    await Distributor.findOne({ distributorCode: distCode }, { lender: 1 })
+  ).lender
+  console.log(lenderName)
+  //No need to check lenderName cause we will only get invoices once distributor is onboarded so it never be undefied or null
+  const template = await EmailTemplate.findOne({ templateId: lenderName })
+  if (!template) {
+    return null
+  }
+  return template
+}
+
+export async function getFormatedEmailBody(invoiceNumber, body) {
+  const doc = await Invoice.findOne(
+    { invoiceNumber: invoiceNumber },
+    {
+      distributorCode: 1,
+      invoiceNumber: 1,
+      invoiceDate: 1,
+      loanAmount: 1,
+      beneficiaryName: 1,
+      beneficiaryAccNo: 1,
+      bankName: 1,
+      ifscCode: 1,
+      branch: 1,
+      _id: 0,
+    }
+  )
+  const placeholders = doc.toObject()
+  placeholders.todaysDate = new Date().toLocaleString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+  placeholders.invoiceDate = new Date(doc.invoiceDate).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+  const filledBody = body.replace(/{{(.*?)}}/g, (key) => {
+    const trimmedKey = key.trim()
+    return placeholders[trimmedKey] || ''
+  })
+  return filledBody
+}
+
+export async function getFormatedSubject(invoiceNumber, subject) {
+  const placeholders = (
+    await Invoice.findOne(
+      { invoiceNumber: invoiceNumber },
+      { companyName: 1, loanAmount: 1, _id: 0 }
+    )
+  ).toObject()
+  const filledSubject = subject.replace(/{{(.*?)}}/g, (match, key) => {
+    const trimmedKey = key.trim()
+    return placeholders[trimmedKey] || ''
+  })
+  return filledSubject
 }

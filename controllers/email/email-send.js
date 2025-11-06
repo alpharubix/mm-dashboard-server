@@ -7,7 +7,7 @@ import {
   getInvoices,
   isAvailableBalanceGreater,
   updateInvoiceStatus,
-} from './utils/service.js'
+} from './email-service/service.js'
 
 async function _sendEmail(transporter, from, to, cc, subject, html) {
   const inlinedHtml = juice(`

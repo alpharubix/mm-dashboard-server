@@ -8,7 +8,7 @@ import { calculatePendingInvoices } from '../../utils/services.js'
 import {
   isDistributorAllowed,
   isDistributorHasOverdue,
-} from '../email/utils/service.js'
+} from '../email/email-service/service.js'
 
 export async function invoiceInput(req, res) {
   try {
