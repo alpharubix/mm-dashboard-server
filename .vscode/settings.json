@@ -1,0 +1,10 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.sortImports": "always"
+  },
+  "editor.formatOnSave": true,
+  "prettier.singleQuote": true,
+  "prettier.jsxSingleQuote": true,
+  "prettier.semi": false,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}
