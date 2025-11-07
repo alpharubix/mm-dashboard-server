@@ -1,9 +1,10 @@
 import { EmailTemplate } from '../../models/email-template.model.js'
 import {
-  getLenderTemplate,
   getFormatedEmailBody,
   getFormatedSubject,
+  getLenderTemplate,
 } from './email-service/service.js'
+
 export async function saveEmailTemplate(req, res) {
   try {
     const template = req.body
@@ -32,14 +33,16 @@ export async function saveEmailTemplate(req, res) {
 
 export async function getTemplate(req, res) {
   try {
-    const distcode = req.query.distcode
+    const distributorCode = req.query.distributorCode
     const invoiceNumber = req.query.invoiceNumber
-    if (!distcode || !invoiceNumber) {
+    console.log({ distributorCode }, { invoiceNumber })
+    if (!distributorCode || !invoiceNumber) {
       return res
         .status(400)
-        .json({ message: 'Both distcode and invoiceNumber is required' })
+        .json({ message: 'Both distributorCode and invoiceNumber is required' })
     }
-    const emailtemplate = await getLenderTemplate(distcode)
+    const emailtemplate = await getLenderTemplate(distributorCode)
+    console.log({ emailtemplate })
     if (!emailtemplate) {
       return res
         .status(204)

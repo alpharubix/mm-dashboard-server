@@ -1,8 +1,8 @@
 import { INV_STATUS } from '../../../conf/index.js'
 import { CreditLimit } from '../../../models/credit-limit.model.js'
 import { Distributor } from '../../../models/distributor-list.model.js'
-import { Invoice } from '../../../models/invoice.model.js'
 import { EmailTemplate } from '../../../models/email-template.model.js'
+import { Invoice } from '../../../models/invoice.model.js'
 
 export async function isDistributorAllowed(distCode) {
   const distributor = await Distributor.findOne({ distributorCode: distCode })
@@ -103,11 +103,14 @@ export async function isAvailableBalanceGreater(
   }
 }
 
-export async function getLenderTemplate(distCode) {
+export async function getLenderTemplate(distributorCode) {
   const lenderName = (
-    await Distributor.findOne({ distributorCode: distCode }, { lender: 1 })
+    await Distributor.findOne(
+      { distributorCode: distributorCode },
+      { lender: 1 }
+    )
   ).lender
-  console.log(lenderName)
+  console.log({ lenderName })
   //No need to check lenderName cause we will only get invoices once distributor is onboarded so it never be undefied or null
   const template = await EmailTemplate.findOne({ templateId: lenderName })
   if (!template) {
@@ -117,6 +120,7 @@ export async function getLenderTemplate(distCode) {
 }
 
 export async function getFormatedEmailBody(invoiceNumber, body) {
+  console.log({ invoiceNumber }, { body })
   const doc = await Invoice.findOne(
     { invoiceNumber: invoiceNumber },
     {
@@ -133,7 +137,7 @@ export async function getFormatedEmailBody(invoiceNumber, body) {
     }
   )
   const placeholders = doc.toObject()
-  placeholders.todaysDate = new Date().toLocaleString('en-IN', {
+  placeholders.todayDate = new Date().toLocaleString('en-IN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -144,7 +148,7 @@ export async function getFormatedEmailBody(invoiceNumber, body) {
     year: 'numeric',
   })
 
-  const filledBody = body.replace(/{{(.*?)}}/g, (key) => {
+  const filledBody = body.replace(/{{(.*?)}}/g, (match, key) => {
     const trimmedKey = key.trim()
     return placeholders[trimmedKey] || ''
   })
