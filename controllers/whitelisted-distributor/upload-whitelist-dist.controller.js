@@ -11,7 +11,6 @@ export async function parseAndSaveDistributors(req, res) {
     'distributorPhone',
     'distributorEmail',
     'lender',
-    'lenderEmail',
     'anchorId',
   ]
 
@@ -88,7 +87,6 @@ export async function parseAndSaveDistributors(req, res) {
       const distributorCode = String(r.distributorCode)
       const lender = r.lender.trim()
       const anchorId = r.anchorId.trim()
-      const lenderEmail = r.lenderEmail.trim()
       if (!isValidPhone(r.distributorPhone.trim())) {
         throw new Error(`Invalid phone number format: ${r.distributorPhone}`)
       }
@@ -102,7 +100,6 @@ export async function parseAndSaveDistributors(req, res) {
         anchorId,
         distributorPhone,
         distributorEmail,
-        lenderEmail,
       }
 
       // 6) Check for existing distributorCode and update if found, else insert

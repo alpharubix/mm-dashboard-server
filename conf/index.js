@@ -34,8 +34,8 @@ export const NULL_VALUES = [
 ]
 
 export const EMAIL_STATUS = {
-  NOT_ELIGIBLE: 'notEligible',
-  OVERDUE: 'overdue',
+  NOT_ELIGIBLE: 'notEligible', // check if dist code is in whitelist or not (At the time when anchor sends inv)
+  OVERDUE: 'overdue', // same as above
   INSUFF_AVAIL_LIMIT: 'insufficientAvailableLimit',
   ELIGIBLE: 'eligible',
   SENT: 'sent',

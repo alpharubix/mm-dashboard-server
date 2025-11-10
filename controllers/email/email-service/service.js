@@ -110,7 +110,6 @@ export async function getLenderTemplate(distributorCode) {
       { lender: 1 }
     )
   ).lender
-  console.log({ lenderName })
   //No need to check lenderName cause we will only get invoices once distributor is onboarded so it never be undefied or null
   const template = await EmailTemplate.findOne({ templateId: lenderName })
   if (!template) {

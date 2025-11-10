@@ -7,7 +7,6 @@ const allowedDistributor = new mongoose.Schema(
     distributorPhone: { type: String, required: true },
     distributorEmail: { type: String, required: true },
     lender: { type: String, required: true },
-    lenderEmail: { type: String, required: true },
     anchorId: { type: String, required: true },
   },
   {

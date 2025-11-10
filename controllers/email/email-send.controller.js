@@ -9,7 +9,7 @@ import {
   updateInvoiceStatus,
 } from './email-service/service.js'
 
-async function _sendEmail(transporter, from, to, cc, subject, html) {
+async function constructAndSendMail(transporter, from, to, cc, subject, html) {
   const inlinedHtml = juice(`
     <style>
       table, th, td {
@@ -61,7 +61,7 @@ function createSmtpConnection() {
   }
 }
 
-export default async function sendEmail(req, res) {
+export async function checkEmailEligibility(req, res) {
   try {
     const { distCode, invoiceNumber, from, to, cc, subject, body } = req.body
     console.log({ distCode, invoiceNumber, from, to, cc, subject, body })
@@ -81,7 +81,7 @@ export default async function sendEmail(req, res) {
     )
     if (isBalanceAvailable) {
       //send the mail and update both the status and email status of that particular invoice
-      const transporter = createSmtpConnection()
+      // const transporter = createSmtpConnection()
       // const invoice = await Invoice.findOne({ invoiceNumber }).lean()
       // if (!invoice) throw new Error('Invoice not found')
 
@@ -97,16 +97,19 @@ export default async function sendEmail(req, res) {
       //   customer: filtered.customerName,
       //   items: filtered.items?.length,
       // }
-      console.log({ transporter })
-      if (transporter) {
-        await _sendEmail(transporter, from, to, cc, subject, body)
-        return res.status(200).json({ msg: 'Sent successfully' })
-      } else {
-        return res.json({ msg: 'Not Sent' })
-      }
+      // console.log({ transporter })
+      // if (transporter) {
+      //   await _sendEmail(transporter, from, to, cc, subject, body)
+      //   return res.status(200).json({ msg: 'Sent successfully' })
+      // } else {
+      //   return res.json({ msg: 'Not Sent' })
+      // }
       // return res.status(200).json({
       //   message: `Email sent successfully for this invoiceNumber-${invoiceNumber}`,
       // })
+      return res
+        .status(200)
+        .json({ message: 'Invoice is ready for sending', isEligible: true })
     } else {
       //step 6 b=> if the available limit is lesser than the total amount dont send the mail update the invoice status
       //ad-hoc polymorphism single function behaves differently when called with different parameters
@@ -128,5 +131,32 @@ export default async function sendEmail(req, res) {
     return res
       .status(500)
       .json({ message: 'Failed to process the email', error: error.message })
+  }
+}
+
+export async function sendmail(req, res) {
+  try {
+    const { invoiceNumber, from, to, cc, subject, body } = req.body
+    if (!invoiceNumber || !from || !to || !cc || !subject || !body) {
+      return res.status(400).json({
+        message:
+          'unable to send email [invoiceNumber,from,to,cc,subject,body] everything is required',
+      })
+    }
+    const transporter = createSmtpConnection()
+    await constructAndSendMail(transporter, from, to, cc, subject, body)
+    const updateResult = await updateInvoiceStatus(
+      invoiceNumber,
+      INV_STATUS.IN_PROGRESS,
+      'status'
+    )
+    await updateInvoiceStatus(invoiceNumber, EMAIL_STATUS.SENT, 'emailStatus')
+    console.log(updateResult)
+    return res.status(200).json({ message: 'email sent successfully' })
+  } catch (err) {
+    console.log('error raised at send mail')
+    return res
+      .status(500)
+      .json({ message: 'Internel server error try after sometime' })
   }
 }
