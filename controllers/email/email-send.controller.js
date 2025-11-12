@@ -106,6 +106,7 @@ export async function checkEmailEligibility(req, res) {
       )
       return res.status(400).json({
         message: `Unable to send mail kindly check the Available Limit for the distributor - ${distributorCode}`,
+        isEligible: false,
       })
     }
   } catch (error) {
