@@ -32,3 +32,20 @@ export const NULL_VALUES = [
   '.',
   '_',
 ]
+
+export const EMAIL_STATUS = {
+  NOT_ELIGIBLE: 'notEligible', // check if dist code is in whitelist or not (At the time when anchor sends inv)
+  OVERDUE: 'overdue', // same as above
+  INSUFF_AVAIL_LIMIT: 'insufficientAvailableLimit',
+  ELIGIBLE: 'eligible',
+  SENT: 'sent',
+}
+
+export const INV_STATUS = {
+  YET_TO_PROCESS: 'yetToProcess',
+  IN_PROGRESS: 'inProgress',
+  PROCESSED: 'processed',
+  PENDING_WITH_CUSTOMER: 'pendingWithCustomer',
+  PENDING_WITH_LENDER: 'pendingWithLender',
+  NOT_PROCESSED: 'notProcessed',
+}
