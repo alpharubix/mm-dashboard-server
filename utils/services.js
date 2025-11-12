@@ -1,3 +1,4 @@
+import { INV_STATUS } from '../conf/index.js'
 import { Invoice } from '../models/invoice.model.js'
 
 const NULL_VALUES = [
@@ -21,7 +22,7 @@ export const calculatePendingInvoices = async (distributorCode) => {
     {
       $match: {
         distributorCode,
-        status: { $ne: 'notProcessed' },
+        status: { $ne: INV_STATUS.NOT_PROCESSED },
         utr: { $in: NULL_VALUES },
       },
     },

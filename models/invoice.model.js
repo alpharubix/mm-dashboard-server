@@ -23,7 +23,7 @@ const invoice = new mongoose.Schema(
       type: String,
       enum: [
         'yetToProcess', // Invice received from anchor
-        'inProgress', // Invioce received from anchor sent for processing
+        'inProgress', // Invoice received from anchor sent for processing
         'processed', // UTR received against payment request shared.
         'pendingWithCustomer', // Invoice payment can be pending from customer
         'pendingWithLender', // Invoice is not processed from lenders
@@ -33,7 +33,20 @@ const invoice = new mongoose.Schema(
       required: true,
     },
     invoicePdfUrl: { type: String },
+    emailStatus: {
+      type: String,
+      enum: [
+        'notEligible',
+        'overdue',
+        'insufficientAvailableLimit',
+        'eligible',
+        'sent',
+      ],
+      default: 'notEligible',
+      required: true,
+    },
   },
+
   { timestamps: true }
 )
 
