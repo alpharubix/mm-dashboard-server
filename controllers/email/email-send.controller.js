@@ -1,4 +1,3 @@
-import converter from 'json-2-csv'
 import juice from 'juice'
 import nodemailer from 'nodemailer'
 import { EMAIL_STATUS, ENV, INV_STATUS } from '../../conf/index.js'
@@ -9,7 +8,15 @@ import {
   updateInvoiceStatus,
 } from './email-service/service.js'
 
-async function constructAndSendMail(transporter, from, to, cc, subject, html) {
+async function constructAndSendMail(
+  transporter,
+  from,
+  to,
+  cc,
+  subject,
+  html,
+  attachments
+) {
   const inlinedHtml = juice(`
     <style>
       table, th, td {
@@ -29,7 +36,7 @@ async function constructAndSendMail(transporter, from, to, cc, subject, html) {
     cc: cc,
     subject: subject,
     html: inlinedHtml,
-    // attachment: null
+    attachments: attachments,
   }
 
   try {
@@ -45,11 +52,11 @@ async function constructAndSendMail(transporter, from, to, cc, subject, html) {
 function createSmtpConnection() {
   try {
     const transporter = nodemailer.createTransport({
-      host: 'smtp.zoho.com',
-      port: 587,
-      secure: false,
+      host: 'smtppro.zoho.in',
+      port: 465,
+      secure: true, // SSL mode
       auth: {
-        user: 'techmgr@meramerchant.com',
+        user: 'invoice@r1xchange.com',
         pass: ENV.ZOHO_APP_PASSWORD,
       },
     })
@@ -63,50 +70,24 @@ function createSmtpConnection() {
 
 export async function checkEmailEligibility(req, res) {
   try {
-    const { distCode, invoiceNumber, from, to, cc, subject, body } = req.body
-    console.log({ distCode, invoiceNumber, from, to, cc, subject, body })
-    if (!distCode || !invoiceNumber) {
+    const { distributorCode, invoiceNumber, from, to, cc, subject, body } =
+      req.body
+    console.log({ distributorCode, invoiceNumber, from, to, cc, subject, body })
+    if (!distributorCode || !invoiceNumber) {
       return res
         .status(400)
         .json({ message: 'Distributor code and Invoice number required' })
     }
-    // if (distCode && invoiceNumber) {
-    const invoices = await getInvoices(distCode) //there is a chance that it might return null as well
+    // if (distributorCode && invoiceNumber) {
+    const invoices = await getInvoices(distributorCode) //there is a chance that it might return null as well
     console.log({ invoices })
 
     const isBalanceAvailable = await isAvailableBalanceGreater(
       invoices,
-      distCode,
+      distributorCode,
       invoiceNumber
     )
     if (isBalanceAvailable) {
-      //send the mail and update both the status and email status of that particular invoice
-      // const transporter = createSmtpConnection()
-      // const invoice = await Invoice.findOne({ invoiceNumber }).lean()
-      // if (!invoice) throw new Error('Invoice not found')
-
-      // 2. Remove unwanted fields
-      // const { _id, __v, createdAt, updatedAt, ...filtered } = invoice
-
-      // 3. Extract or transform needed data
-      // const data = {
-      //   date: Date.now(),
-      //   distCode: filtered.distCode,
-      //   invoiceNumber: filtered.invoiceNumber,
-      //   amount: filtered.amount,
-      //   customer: filtered.customerName,
-      //   items: filtered.items?.length,
-      // }
-      // console.log({ transporter })
-      // if (transporter) {
-      //   await _sendEmail(transporter, from, to, cc, subject, body)
-      //   return res.status(200).json({ msg: 'Sent successfully' })
-      // } else {
-      //   return res.json({ msg: 'Not Sent' })
-      // }
-      // return res.status(200).json({
-      //   message: `Email sent successfully for this invoiceNumber-${invoiceNumber}`,
-      // })
       return res
         .status(200)
         .json({ message: 'Invoice is ready for sending', isEligible: true })
@@ -123,8 +104,8 @@ export async function checkEmailEligibility(req, res) {
         EMAIL_STATUS.INSUFF_AVAIL_LIMIT,
         'emailStatus'
       )
-      return res.status(403).json({
-        message: `unable to send mail kindly check the available-limit for the distributor - ${distCode}`,
+      return res.status(400).json({
+        message: `Unable to send mail kindly check the Available Limit for the distributor - ${distributorCode}`,
       })
     }
   } catch (error) {
@@ -136,27 +117,71 @@ export async function checkEmailEligibility(req, res) {
 
 export async function sendmail(req, res) {
   try {
-    const { invoiceNumber, from, to, cc, subject, body } = req.body
-    if (!invoiceNumber || !from || !to || !cc || !subject || !body) {
+    const { invoiceNumber, from, to, cc, subject, body, csv, pdfUrl } = req.body
+
+    if (!invoiceNumber || !from || !to || !subject || !body) {
       return res.status(400).json({
-        message:
-          'unable to send email [invoiceNumber,from,to,cc,subject,body] everything is required',
+        message: 'invoiceNumber, from, to, subject and body are required',
       })
     }
+
+    // get invoice (optional guard)
+    const invoice = await Invoice.findOne({ invoiceNumber }).lean()
+    if (!invoice) return res.status(404).json({ message: 'Invoice not found' })
+
+    // build attachments array for nodemailer
+    const attachments = []
+
+    // CSV (required) — expect csv = { filename, base64 }
+    if (csv && csv.base64 && csv.filename) {
+      const csvBuffer = Buffer.from(csv.base64, 'base64')
+      attachments.push({
+        filename: csv.filename,
+        content: csvBuffer,
+        contentType: csv.mime || 'text/csv',
+      })
+    } else {
+      return res.status(400).json({ message: 'CSV attachment missing' })
+    }
+
+    // PDF — use URL from frontend (or invoice.invoicePdfUrl fallback)
+    const pdfPath = pdfUrl || invoice.invoicePdfUrl
+    if (pdfPath) {
+      // Nodemailer supports `path` with an http(s) URL; it will fetch it.
+      attachments.push({
+        filename: `invoice_${invoiceNumber}.pdf`,
+        path: pdfPath,
+        contentType: 'application/pdf',
+      })
+    } else {
+      return res.status(400).json({ message: 'PDF URL missing' })
+    }
+
     const transporter = createSmtpConnection()
-    await constructAndSendMail(transporter, from, to, cc, subject, body)
-    const updateResult = await updateInvoiceStatus(
-      invoiceNumber,
-      INV_STATUS.IN_PROGRESS,
-      'status'
+    if (!transporter)
+      return res
+        .status(500)
+        .json({ message: 'Failed to create SMTP connection' })
+
+    await constructAndSendMail(
+      transporter,
+      from,
+      to,
+      cc,
+      subject,
+      body,
+      attachments
     )
+
+    await updateInvoiceStatus(invoiceNumber, INV_STATUS.IN_PROGRESS, 'status')
     await updateInvoiceStatus(invoiceNumber, EMAIL_STATUS.SENT, 'emailStatus')
-    console.log(updateResult)
+
     return res.status(200).json({ message: 'email sent successfully' })
   } catch (err) {
-    console.log('error raised at send mail')
-    return res
-      .status(500)
-      .json({ message: 'Internel server error try after sometime' })
+    console.log('error raised at send mail:', err)
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: err.message,
+    })
   }
 }

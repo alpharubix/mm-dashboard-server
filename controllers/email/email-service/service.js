@@ -1,8 +1,12 @@
+import axios from 'axios'
+import { format } from 'date-fns'
+import converter from 'json-2-csv'
 import { INV_STATUS } from '../../../conf/index.js'
 import { CreditLimit } from '../../../models/credit-limit.model.js'
 import { Distributor } from '../../../models/distributor-list.model.js'
 import { EmailTemplate } from '../../../models/email-template.model.js'
 import { Invoice } from '../../../models/invoice.model.js'
+import { formatAmount } from '../../../utils/index.js'
 
 export async function isDistributorAllowed(distCode) {
   const distributor = await Distributor.findOne({ distributorCode: distCode })
@@ -39,6 +43,7 @@ export async function isDistributorHasOverdue(distCode) {
     }
   }
 }
+
 export async function updateInvoiceStatus(
   invoices,
   statusToBeUpdated,
@@ -136,16 +141,9 @@ export async function getFormatedEmailBody(invoiceNumber, body) {
     }
   )
   const placeholders = doc.toObject()
-  placeholders.todayDate = new Date().toLocaleString('en-IN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-  placeholders.invoiceDate = new Date(doc.invoiceDate).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  placeholders.todayDate = format(Date.now(), 'dd-MM-yyyy')
+
+  placeholders.invoiceDate = format(doc.invoiceDate, 'dd-MM-yyyy')
 
   const filledBody = body.replace(/{{(.*?)}}/g, (match, key) => {
     const trimmedKey = key.trim()
@@ -166,4 +164,70 @@ export async function getFormatedSubject(invoiceNumber, subject) {
     return placeholders[trimmedKey] || ''
   })
   return filledSubject
+}
+
+async function fetchFileFromUrl(url) {
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer' })
+    console.log({ response })
+    return Buffer.from(response.data)
+  } catch (error) {
+    console.log('Error fetching file from URL:', error)
+    throw error
+  }
+}
+
+export async function generateInvoiceAttachments(invoice) {
+  const attachments = []
+  const today = format(Date.now(), 'dd-MM-yyyy')
+  try {
+    // Generate CSV from invoice fields
+    const csvData = converter.json2csv([
+      {
+        Date: today,
+        'Lender Name': 'Kotak Mahindra',
+        'Distributor Name': invoice.companyName || 'NA',
+        'Distributor Code': invoice.distributorCode || 'NA',
+        'Contact Number': invoice.distributorPhone || 'NA',
+        'Email ID': invoice.distributorEmail || 'NA',
+        'Beneficiary Name': invoice.beneficiaryName || 'NA',
+        'Beneficiary A/c no': invoice.beneficiaryAccNo || 'NA',
+        'Bank Name': invoice.bankName || 'NA',
+        'IFSC Code': invoice.ifscCode || 'NA',
+        Branch: invoice.branch || 'NA',
+        'Invoice no': invoice.invoiceNumber || 'NA',
+        'Invoice amount': formatAmount(invoice.invoiceAmount) || 'NA',
+        'Invoice date': format(invoice.invoiceDate, 'dd-MM-yyyy') || 'NA',
+        'Loan Amount': formatAmount(invoice.loanAmount) || 'NA',
+        'Loan Disbursement Date': today || 'NA',
+        Tenure: '90 Days',
+      },
+    ])
+
+    attachments.push({
+      filename: `invoice_${invoice.invoiceNumber}.csv`,
+      content: csvData,
+      contentType: 'text/csv',
+    })
+  } catch (error) {
+    console.log('Error generating CSV:', error)
+    throw error
+  }
+
+  // Fetch and attach PDF from GCS
+  if (invoice.invoicePdfUrl) {
+    try {
+      const pdfBuffer = await fetchFileFromUrl(invoice.invoicePdfUrl)
+      attachments.push({
+        filename: `invoice_${invoice.invoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      })
+    } catch (error) {
+      console.log('Error fetching PDF:', error)
+      throw error
+    }
+  }
+
+  return attachments
 }

@@ -17,6 +17,7 @@
   "description": "",
   "dependencies": {
     "@google-cloud/storage": "^7.16.0",
+    "axios": "^1.13.2",
     "basic-ftp": "^5.0.5",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",

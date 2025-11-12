@@ -46,3 +46,11 @@ export function calculateBillingStatus(currentAvailable, overdue) {
 }
 
 export const isValidPhone = (str) => /^\d{10}$/.test(str)
+
+export const formatAmount = (amount) => {
+  if (amount === null || amount === undefined) return '0.00'
+  return amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
