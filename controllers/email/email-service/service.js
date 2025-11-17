@@ -191,7 +191,9 @@ export async function generateInvoiceAttachments(invoice) {
         'Contact Number': invoice.distributorPhone || 'NA',
         'Email ID': invoice.distributorEmail || 'NA',
         'Beneficiary Name': invoice.beneficiaryName || 'NA',
-        'Beneficiary A/c no': invoice.beneficiaryAccNo || 'NA',
+        'Beneficiary A/c no': invoice.beneficiaryAccNo
+          ? `' ${invoice.beneficiaryAccNo}`
+          : 'NA',
         'Bank Name': invoice.bankName || 'NA',
         'IFSC Code': invoice.ifscCode || 'NA',
         Branch: invoice.branch || 'NA',
