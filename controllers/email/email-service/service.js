@@ -231,3 +231,21 @@ export async function generateInvoiceAttachments(invoice) {
 
   return attachments
 }
+export async function getInvoicesBasedOnEmailStatus(distCode, status) {
+  const invoices = await Invoice.find({
+    distributorCode: distCode,
+    emailStatus: {
+      $in: status,
+    },
+  })
+  return invoices
+}
+export async function getInvoicesBasedOnStatus(distCode, status) {
+  const invoices = await Invoice.find({
+    distributorCode: distCode,
+    status: {
+      $in: status,
+    },
+  })
+  return invoices
+}

@@ -3,11 +3,15 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
-import { NULL_VALUES } from '../../conf/index.js'
+import { EMAIL_STATUS, INV_STATUS, NULL_VALUES } from '../../conf/index.js'
 import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 import { toCamelCase } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
+import {
+  isDistributorAllowed,
+  updateInvoiceStatus,
+} from '../email/email-service/service.js'
 
 function normalizeValue(value) {
   if (typeof value !== 'string') return value
@@ -187,6 +191,19 @@ export async function invoiceCsvParseAndSave(req, res) {
 
           if (validStatuses.includes(_status)) {
             updateFields.status = _status
+            //check if the invoice if from whitelisted distributors
+            const isDistWhiteListed = await isDistributorAllowed(
+              normalized.distributorCode
+            )
+            if (isDistWhiteListed) {
+              if (_status === INV_STATUS.PROCESSED) {
+                await updateInvoiceStatus(
+                  normalized.invoiceNumber,
+                  EMAIL_STATUS.SENT,
+                  'emailStatus'
+                )
+              }
+            }
           } else {
             throw new Error(
               `Invalid status: "${normalized.status}". Valid options: ${validStatuses.join(', ')}`
