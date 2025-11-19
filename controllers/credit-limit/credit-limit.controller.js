@@ -3,10 +3,18 @@ import fs from 'fs'
 import { unlink } from 'fs/promises'
 import mongoose from 'mongoose'
 
+import { isValid, parse } from 'date-fns'
 import { CreditLimit } from '../../models/credit-limit.model.js'
 import { calculateBillingStatus, toCamelCase } from '../../utils/index.js'
-import { isValid, parse } from 'date-fns'
 import { calculatePendingInvoices } from '../../utils/services.js'
+
+import { EMAIL_STATUS, INV_STATUS } from '../../conf/index.js'
+import {
+  getInvoicesBasedOnEmailStatus,
+  getInvoicesBasedOnStatus,
+  isDistributorAllowed,
+  updateInvoiceStatus,
+} from '../email/email-service/service.js'
 
 export async function creditLimitCsvParseAndSave(req, res) {
   const requiredFields = [
@@ -48,7 +56,7 @@ export async function creditLimitCsvParseAndSave(req, res) {
         .on('end', resolve)
         .on('error', reject)
     })
-
+    console.log(rows)
     if (rows.length === 0) {
       return res.status(400).json({ message: 'CSV is empty' })
     }
@@ -202,6 +210,92 @@ export async function creditLimitCsvParseAndSave(req, res) {
         }
       })
     )
+    try {
+      await Promise.all(
+        toInsert.map(async (limit) => {
+          const distCode = limit.distributorCode
+          const overDue = limit.overdue
+          const isDistWhiteListed = await isDistributorAllowed(distCode)
+          if (isDistWhiteListed) {
+            if (overDue === 0) {
+              const invoices = await getInvoicesBasedOnEmailStatus(distCode, [
+                EMAIL_STATUS.OVERDUE,
+              ])
+              await updateInvoiceStatus(
+                invoices,
+                EMAIL_STATUS.ELIGIBLE,
+                'emailStatus'
+              )
+              await updateInvoiceStatus(
+                invoices,
+                INV_STATUS.YET_TO_PROCESS,
+                'status'
+              )
+              //After checking the overdue check for the available limit
+              const availableLimitInvoices = await getInvoicesBasedOnStatus(
+                distCode,
+                [INV_STATUS.PENDING_WITH_CUSTOMER]
+              )
+              let totalLoanAmount = 0
+              if (availableLimitInvoices) {
+                availableLimitInvoices.forEach((invoice) => {
+                  totalLoanAmount += invoice.loanAmount
+                })
+              }
+              if (limit.availableLimit > totalLoanAmount) {
+                const invoice = await getInvoicesBasedOnStatus(distCode, [
+                  INV_STATUS.PENDING_WITH_CUSTOMER,
+                ])
+                await updateInvoiceStatus(
+                  invoice,
+                  INV_STATUS.YET_TO_PROCESS,
+                  'status'
+                )
+                await updateInvoiceStatus(
+                  invoice,
+                  EMAIL_STATUS.ELIGIBLE,
+                  'emailStatus'
+                )
+              } else {
+                const invoice = await getInvoicesBasedOnStatus(distCode, [
+                  INV_STATUS.YET_TO_PROCESS,
+                ])
+                await updateInvoiceStatus(
+                  invoice,
+                  INV_STATUS.PENDING_WITH_CUSTOMER,
+                  'status'
+                )
+                await updateInvoiceStatus(
+                  invoice,
+                  EMAIL_STATUS.INSUFF_AVAIL_LIMIT,
+                  'emailStatus'
+                )
+              }
+            } else {
+              const invoices = await getInvoicesBasedOnEmailStatus(distCode, [
+                EMAIL_STATUS.ELIGIBLE,
+              ])
+              await updateInvoiceStatus(
+                invoices,
+                EMAIL_STATUS.OVERDUE,
+                'emailStatus'
+              )
+              await updateInvoiceStatus(
+                invoices,
+                INV_STATUS.PENDING_WITH_CUSTOMER,
+                'status'
+              )
+            }
+          }
+        })
+      )
+    } catch (err) {
+      console.log(
+        'Error happend during overdue check while uploading credlimit',
+        err
+      )
+      return res.json(500).json({ message: 'Internel server error' })
+    }
     // console.log({ toInsert })
     // 5) Database operations with session (All or Nothing)
     const session = await mongoose.startSession()
