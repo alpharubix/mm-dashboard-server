@@ -1,6 +1,6 @@
-import { Onboard } from '../models/onboard.model.js'
 import { CreditLimit } from '../models/credit-limit.model.js'
 import { Invoice } from '../models/invoice.model.js'
+import { Onboard } from '../models/onboard.model.js'
 
 export const getViewerData = async (req, res) => {
   const user = req.user
@@ -48,7 +48,7 @@ export const getViewerData = async (req, res) => {
         distributorPhone: 1,
         invoicePdfUrl: 1,
         _id: 0,
-      }),
+      }).sort({ invoiceDate: -1 }),
     ])
 
     res.status(200).json({
