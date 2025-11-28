@@ -31,19 +31,71 @@ export async function invoiceInput(req, res) {
         .json({ error: 'Too many invoices. Maximum 1000 per request' })
     }
 
-    // Validate required fields upfront
-    const invalidInvoices = invoices.filter(
-      (inv) =>
+    // Validate required fields and constraints
+    const validationErrors = {
+      missingNumber: [],
+      negativeAmount: [],
+      negativeLoan: [],
+      loanExceedsInvoice: [],
+      invalidFormat: [], // Added for non-numeric strings
+    }
+
+    invoices.forEach((inv, index) => {
+      // 1. Check Invoice Number
+      if (
         !inv.invoiceNumber ||
         typeof inv.invoiceNumber !== 'string' ||
         inv.invoiceNumber.trim() === ''
-    )
+      ) {
+        validationErrors.missingNumber.push(`Item at index ${index}`)
+        return
+      }
 
-    if (invalidInvoices.length > 0) {
+      const invNum = inv.invoiceNumber.trim()
+
+      // CONVERT TO NUMBERS HERE
+      const invAmount = Number(inv.invoiceAmount)
+      const loanAmount =
+        inv.loanAmount !== undefined && inv.loanAmount !== null
+          ? Number(inv.loanAmount)
+          : null
+
+      // Check if they are valid numbers (not NaN)
+      if (isNaN(invAmount) || (loanAmount !== null && isNaN(loanAmount))) {
+        validationErrors.invalidFormat.push(invNum)
+        return
+      }
+
+      // 2. Check Negative Invoice Amount
+      if (invAmount < 0) {
+        validationErrors.negativeAmount.push(invNum)
+      }
+
+      // 3. Check Loan Amount Logic
+      if (loanAmount !== null) {
+        // Check A: Loan cannot be negative
+        if (loanAmount < 0) {
+          validationErrors.negativeLoan.push(invNum)
+        }
+        // Check B: Loan cannot be greater than invoice
+        // Now comparing numbers: 10000000 > 12000 will be TRUE
+        else if (loanAmount > invAmount) {
+          validationErrors.loanExceedsInvoice.push(invNum)
+        }
+      }
+    })
+
+    // Return error if any validation bucket has content
+    if (
+      validationErrors.missingNumber.length > 0 ||
+      validationErrors.negativeAmount.length > 0 ||
+      validationErrors.negativeLoan.length > 0 ||
+      validationErrors.loanExceedsInvoice.length > 0 ||
+      validationErrors.invalidFormat.length > 0
+    ) {
       return res.status(400).json({
-        error:
-          'Invalid invoice data. invoiceNumber is required and must be non-empty string',
-        invalidCount: invalidInvoices.length,
+        error: 'Validation failed',
+        details: validationErrors,
       })
     }
 
