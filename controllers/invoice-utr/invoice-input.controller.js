@@ -34,8 +34,8 @@ export async function invoiceInput(req, res) {
     // Validate required fields and constraints
     const validationErrors = {
       missingNumber: [],
-      negativeAmount: [],
-      negativeLoan: [],
+      negativeInvoiceAmount: [],
+      negativeLoanAmount: [],
       loanExceedsInvoice: [],
       invalidFormat: [], // Added for non-numeric strings
     }
@@ -68,14 +68,14 @@ export async function invoiceInput(req, res) {
 
       // 2. Check Negative Invoice Amount
       if (invAmount < 0) {
-        validationErrors.negativeAmount.push(invNum)
+        validationErrors.negativeInvoiceAmount.push(invNum)
       }
 
       // 3. Check Loan Amount Logic
       if (loanAmount !== null) {
         // Check A: Loan cannot be negative
         if (loanAmount < 0) {
-          validationErrors.negativeLoan.push(invNum)
+          validationErrors.negativeLoanAmount.push(invNum)
         }
         // Check B: Loan cannot be greater than invoice
         // Now comparing numbers: 10000000 > 12000 will be TRUE
@@ -88,8 +88,8 @@ export async function invoiceInput(req, res) {
     // Return error if any validation bucket has content
     if (
       validationErrors.missingNumber.length > 0 ||
-      validationErrors.negativeAmount.length > 0 ||
-      validationErrors.negativeLoan.length > 0 ||
+      validationErrors.negativeInvoiceAmount.length > 0 ||
+      validationErrors.negativeLoanAmount.length > 0 ||
       validationErrors.loanExceedsInvoice.length > 0 ||
       validationErrors.invalidFormat.length > 0
     ) {
