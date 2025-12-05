@@ -11,8 +11,10 @@ export const getInvoiceData = async (req, res) => {
         invoiceNumber,
         distributorCode,
         utr,
-        fromDate,
-        toDate,
+        fromInvoiceDate,
+        toInvoiceDate,
+        fromLoanDisbursementDate,
+        toLoanDisbursementDate,
         status,
         anchorId,
         page = 1,
@@ -48,21 +50,38 @@ export const getInvoiceData = async (req, res) => {
         filter.status = new RegExp(`^${status}$`, 'i')
       }
 
-      if (fromDate || toDate) {
+      if (fromInvoiceDate || toInvoiceDate) {
         const dateFilter = {}
 
-        if (fromDate) {
-          const from = parse(fromDate, 'dd-MM-yy', new Date())
+        if (fromInvoiceDate) {
+          const from = parse(fromInvoiceDate, 'dd-MM-yy', new Date())
           dateFilter.$gte = from
         }
 
-        if (toDate) {
-          const to = parse(toDate, 'dd-MM-yy', new Date())
+        if (toInvoiceDate) {
+          const to = parse(toInvoiceDate, 'dd-MM-yy', new Date())
           to.setHours(23, 59, 59, 999)
           dateFilter.$lte = to
         }
 
         filter.invoiceDate = dateFilter
+      }
+
+      if (fromLoanDisbursementDate || toLoanDisbursementDate) {
+        const dateFilter = {}
+
+        if (fromLoanDisbursementDate) {
+          const from = parse(fromLoanDisbursementDate, 'dd-MM-yy', new Date())
+          dateFilter.$gte = from
+        }
+
+        if (toLoanDisbursementDate) {
+          const to = parse(toLoanDisbursementDate, 'dd-MM-yy', new Date())
+          to.setHours(23, 59, 59, 999)
+          dateFilter.$lte = to
+        }
+
+        filter.loanDisbursementDate = dateFilter
       }
 
       // console.log({ filter })
