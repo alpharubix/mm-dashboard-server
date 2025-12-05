@@ -11,7 +11,7 @@ export const getInvoiceData = async (req, res) => {
         invoiceNumber,
         distributorCode,
         utr,
-        fromDate,
+        fromInvoiceDate,
         toDate,
         fromLoanDisbursementDate,
         toLoanDisbursementDate,
@@ -50,11 +50,11 @@ export const getInvoiceData = async (req, res) => {
         filter.status = new RegExp(`^${status}$`, 'i')
       }
 
-      if (fromDate || toDate) {
+      if (fromInvoiceDate || toDate) {
         const dateFilter = {}
 
-        if (fromDate) {
-          const from = parse(fromDate, 'dd-MM-yy', new Date())
+        if (fromInvoiceDate) {
+          const from = parse(fromInvoiceDate, 'dd-MM-yy', new Date())
           dateFilter.$gte = from
         }
 
