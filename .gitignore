@@ -8,3 +8,6 @@ inputfiles/*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+#bruno
+Alpharubix API Endpoints

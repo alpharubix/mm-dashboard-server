@@ -1,7 +1,8 @@
 import express from 'express'
+import { getAllowdedDistEmailCount } from '../controllers/email/email-eligible-dist.controller.js'
 import {
-  sendmail,
   checkEmailEligibility,
+  sendmail,
 } from '../controllers/email/email-send.controller.js'
 import {
   getTemplate,
@@ -21,5 +22,11 @@ router.post(
 router.get('/email-template', validateUser, isSuperAdmin, getTemplate) //responsible for getting prefilled email template
 router.post('/send-mail', validateUser, isSuperAdmin, sendmail) //responsible for sending the email
 router.post('/email-template', validateUser, isSuperAdmin, saveEmailTemplate) //responsible for saving the new email template
+router.get(
+  '/eligible-email-count',
+  validateUser,
+  isSuperAdmin,
+  getAllowdedDistEmailCount
+)
 
 export default router
