@@ -68,53 +68,53 @@ function createSmtpConnection() {
   }
 }
 
-export async function checkEmailEligibility(req, res) {
-  try {
-    const { distributorCode, invoiceNumber, from, to, cc, subject, body } =
-      req.body
-    console.log({ distributorCode, invoiceNumber, from, to, cc, subject, body })
-    if (!distributorCode || !invoiceNumber) {
-      return res
-        .status(400)
-        .json({ message: 'Distributor code and Invoice number required' })
-    }
-    // if (distributorCode && invoiceNumber) {
-    const invoices = await getInvoices(distributorCode) //there is a chance that it might return null as well
-    console.log({ invoices })
+// export async function checkEmailEligibility(req, res) {
+//   try {
+//     const { distributorCode, invoiceNumber, from, to, cc, subject, body } =
+//       req.body
+//     console.log({ distributorCode, invoiceNumber, from, to, cc, subject, body })
+//     if (!distributorCode || !invoiceNumber) {
+//       return res
+//         .status(400)
+//         .json({ message: 'Distributor code and Invoice number required' })
+//     }
+//     // if (distributorCode && invoiceNumber) {
+//     const invoices = await getInvoices(distributorCode) //there is a chance that it might return null as well
+//     console.log({ invoices })
 
-    const isBalanceAvailable = await isAvailableBalanceGreater(
-      invoices,
-      distributorCode,
-      invoiceNumber
-    )
-    if (isBalanceAvailable) {
-      return res
-        .status(200)
-        .json({ message: 'Invoice is ready for sending', isEligible: true })
-    } else {
-      //step 6 b=> if the available limit is lesser than the total amount dont send the mail update the invoice status
-      //ad-hoc polymorphism single function behaves differently when called with different parameters
-      await updateInvoiceStatus(
-        invoiceNumber,
-        INV_STATUS.PENDING_WITH_CUSTOMER,
-        'status'
-      )
-      await updateInvoiceStatus(
-        invoiceNumber,
-        EMAIL_STATUS.INSUFF_AVAIL_LIMIT,
-        'emailStatus'
-      )
-      return res.status(400).json({
-        message: `Unable to send mail kindly check the Available Limit for the distributor - ${distributorCode}`,
-        isEligible: false,
-      })
-    }
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: 'Failed to process the email', error: error.message })
-  }
-}
+//     const isBalanceAvailable = await isAvailableBalanceGreater(
+//       invoices,
+//       distributorCode,
+//       invoiceNumber
+//     )
+//     if (isBalanceAvailable) {
+//       return res
+//         .status(200)
+//         .json({ message: 'Invoice is ready for sending', isEligible: true })
+//     } else {
+//       //step 6 b=> if the available limit is lesser than the total amount dont send the mail update the invoice status
+//       //ad-hoc polymorphism single function behaves differently when called with different parameters
+//       await updateInvoiceStatus(
+//         invoiceNumber,
+//         INV_STATUS.PENDING_WITH_CUSTOMER,
+//         'status'
+//       )
+//       await updateInvoiceStatus(
+//         invoiceNumber,
+//         EMAIL_STATUS.INSUFF_AVAIL_LIMIT,
+//         'emailStatus'
+//       )
+//       return res.status(400).json({
+//         message: `Unable to send mail kindly check the Available Limit for the distributor - ${distributorCode}`,
+//         isEligible: false,
+//       })
+//     }
+//   } catch (error) {
+//     return res
+//       .status(500)
+//       .json({ message: 'Failed to process the email', error: error.message })
+//   }
+// }
 
 export async function sendmail(req, res) {
   try {
