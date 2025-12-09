@@ -19,15 +19,22 @@ export async function getAllowdedDistEmailCount(req, res) {
       .skip(skip)
       .limit(limit * page)
       .lean()
+
     for (let dist of data) {
-      let totalEligibleInvoiceCount = (
-        await getInvoicesBasedOnEmailStatus(
-          dist.distributorCode,
-          EMAIL_STATUS.ELIGIBLE
-        )
-      ).length
-      dist.totalEligibleInvoiceCount = totalEligibleInvoiceCount
+      let invoices = await getInvoicesBasedOnEmailStatus(
+        dist.distributorCode,
+        EMAIL_STATUS.ELIGIBLE
+      )
+      dist.totalEligibleInvoiceCount = invoices.length
+      if (invoices.lenght === 0) {
+        dist.invoiceNumbers = []
+      } else {
+        dist.invoiceNumbers = invoices.map((inv, index) => {
+          return inv.invoiceNumber
+        })
+      }
     }
+
     return res.status(200).json({
       data: data,
       pageInfo: {

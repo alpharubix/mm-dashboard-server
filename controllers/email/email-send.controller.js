@@ -118,45 +118,37 @@ export async function checkEmailEligibility(req, res) {
 
 export async function sendmail(req, res) {
   try {
-    const { invoiceNumber, from, to, cc, subject, body, csv, pdfUrl } = req.body
-
-    if (!invoiceNumber || !from || !to || !subject || !body) {
+    // 1. Accept 'attachments' array instead of specific csv/pdfUrl fields
+    const { invoiceNumbers, from, to, cc, subject, body, attachments } =
+      req.body
+    console.log({ invoiceNumbers })
+    if (!invoiceNumbers.length === 0 || !from || !to || !subject || !body) {
       return res.status(400).json({
         message: 'invoiceNumber, from, to, subject and body are required',
       })
     }
 
-    // get invoice (optional guard)
-    const invoice = await Invoice.findOne({ invoiceNumber }).lean()
-    if (!invoice) return res.status(404).json({ message: 'Invoice not found' })
-
-    // build attachments array for nodemailer
-    const attachments = []
-
-    // CSV (required) — expect csv = { filename, base64 }
-    if (csv && csv.base64 && csv.filename) {
-      const csvBuffer = Buffer.from(csv.base64, 'base64')
-      attachments.push({
-        filename: csv.filename,
-        content: csvBuffer,
-        contentType: csv.mime || 'text/csv',
-      })
-    } else {
-      return res.status(400).json({ message: 'CSV attachment missing' })
+    // 2. Handle Multiple Invoice Numbers
+    const invoices = await Invoice.find({
+      invoiceNumber: { $in: invoiceNumbers },
+    }).lean()
+    if (!invoices || invoices.length === 0) {
+      return res.status(404).json({ message: 'No invoices found' })
     }
 
-    // PDF — use URL from frontend (or invoice.invoicePdfUrl fallback)
-    const pdfPath = pdfUrl || invoice.invoicePdfUrl
-    if (pdfPath) {
-      // Nodemailer supports `path` with an http(s) URL; it will fetch it.
-      attachments.push({
-        filename: `invoice_${invoiceNumber}.pdf`,
-        path: pdfPath,
-        contentType: 'application/pdf',
-      })
-    } else {
-      return res.status(400).json({ message: 'PDF URL missing' })
-    }
+    // 3. Prepare Attachments
+    // The frontend sends the array exactly how Nodemailer wants it
+    // (with 'content', 'encoding', 'filename'), so we just use it directly.
+    // If your frontend sends { mime, base64 }, you might need a quick map here.
+    // Assuming your Frontend logic from previous steps:
+    const mailAttachments = attachments.map((att) => ({
+      filename: att.filename,
+      // If frontend sends 'content' (base64 string) and 'encoding', use that.
+      // If frontend sends 'base64' key (from your earlier code), map it:
+      content: att.content || att.base64,
+      encoding: 'base64',
+      contentType: att.contentType || att.mime,
+    }))
 
     const transporter = createSmtpConnection()
     if (!transporter)
@@ -164,6 +156,7 @@ export async function sendmail(req, res) {
         .status(500)
         .json({ message: 'Failed to create SMTP connection' })
 
+    // 4. Send Mail
     await constructAndSendMail(
       transporter,
       from,
@@ -171,11 +164,17 @@ export async function sendmail(req, res) {
       cc,
       subject,
       body,
-      attachments
+      mailAttachments // Pass the array of attachments
     )
 
-    await updateInvoiceStatus(invoiceNumber, INV_STATUS.IN_PROGRESS, 'status')
-    await updateInvoiceStatus(invoiceNumber, EMAIL_STATUS.SENT, 'emailStatus')
+    // 5. Update Status for ALL Invoices
+    // We loop through the array of numbers we split earlier
+    await Promise.all(
+      invoiceNumbers.map(async (invNum) => {
+        await updateInvoiceStatus(invNum, INV_STATUS.IN_PROGRESS, 'status')
+        await updateInvoiceStatus(invNum, EMAIL_STATUS.SENT, 'emailStatus')
+      })
+    )
 
     return res.status(200).json({ message: 'email sent successfully' })
   } catch (err) {

@@ -1,9 +1,11 @@
+import { EMAIL_STATUS, INV_STATUS } from '../../conf/index.js'
 import { EmailTemplate } from '../../models/email-template.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 import {
   generateInvoiceAttachments,
   getFormatedEmailBody,
   getFormatedSubject,
+  getInvoicesBasedOnEmailStatus,
   getLenderTemplate,
 } from './email-service/service.js'
 
@@ -36,11 +38,8 @@ export async function saveEmailTemplate(req, res) {
 export async function getTemplate(req, res) {
   try {
     const distributorCode = req.query.distributorCode
-    const invoiceNumber = req.query.invoiceNumber
-    if (!distributorCode || !invoiceNumber) {
-      return res
-        .status(400)
-        .json({ message: 'Both distributorCode and invoiceNumber is required' })
+    if (!distributorCode) {
+      return res.status(400).json({ message: 'distributorCode is required' })
     }
 
     const emailtemplate = await getLenderTemplate(distributorCode)
@@ -50,29 +49,33 @@ export async function getTemplate(req, res) {
         .json({ message: "No template found for this distributor's Lender" })
     }
 
-    const invoice = await Invoice.findOne({ invoiceNumber }).lean()
-    if (!invoice) {
-      return res.status(404).json({ message: 'Invoice not found' })
+    // 1. Fetch Invoices
+    const invoices = await getInvoicesBasedOnEmailStatus(
+      distributorCode,
+      EMAIL_STATUS.ELIGIBLE
+    )
+
+    if (!invoices.length) {
+      return res.status(404).json({ message: 'No eligible invoices found' })
     }
 
-    // generate csv (same helper you already have)
-    const attachmentsArr = await generateInvoiceAttachments(invoice)
-    const csvAttachment = attachmentsArr.find(
-      (a) => a.contentType && a.contentType.startsWith('text/csv')
-    )
-    const csvBase64 = csvAttachment
-      ? Buffer.from(
-          typeof csvAttachment.content === 'string'
-            ? csvAttachment.content
-            : csvAttachment.content
-        ).toString('base64')
-      : null
+    // 2. Generate Attachments (Consolidated CSV & PDFs)
+    const attachmentsArr = await generateInvoiceAttachments(invoices)
 
-    const body = await getFormatedEmailBody(invoiceNumber, emailtemplate.body)
-    const subject = await getFormatedSubject(
-      invoiceNumber,
-      emailtemplate.subject
-    )
+    // 3. Generate Body
+    // PASS THE FULL ARRAY HERE
+    const body = await getFormatedEmailBody(invoices, emailtemplate.body)
+
+    // 4. Generate Subject
+    // const allInvoiceNumbers = invoices.map((i) => i.invoiceNumber).join(', ')
+    const subject = await getFormatedSubject(invoices, emailtemplate.subject)
+
+    // 4. Prepare Response
+    const formattedAttachments = attachmentsArr.map((att) => ({
+      filename: att.filename,
+      mime: att.contentType,
+      base64: Buffer.from(att.content).toString('base64'),
+    }))
 
     return res.status(200).json({
       message: 'template fetch successful',
@@ -82,22 +85,7 @@ export async function getTemplate(req, res) {
         cc: emailtemplate.cc ?? '',
         subject,
         body,
-        attachments: {
-          csv: csvBase64
-            ? {
-                filename: csvAttachment.filename,
-                mime: csvAttachment.contentType,
-                base64: csvBase64,
-              }
-            : null,
-          pdf: invoice.invoicePdfUrl
-            ? {
-                filename: `invoice_${invoice.invoiceNumber}.pdf`,
-                mime: 'application/pdf',
-                url: invoice.invoicePdfUrl,
-              }
-            : null,
-        },
+        attachments: formattedAttachments,
       },
     })
   } catch (error) {
