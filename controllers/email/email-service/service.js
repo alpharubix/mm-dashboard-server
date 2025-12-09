@@ -251,3 +251,37 @@ export async function getInvoicesBasedOnStatus(distCode, status) {
   })
   return invoices
 }
+export async function checkAvailableLimit(
+  invoices,
+  distCode,
+  invoiceLoanAmount
+) {
+  let totalLoanAmount = 0
+  if (invoices.length !== 0) {
+    invoices.forEach((invoice) => {
+      totalLoanAmount += invoice.loanAmount
+    })
+    const availableLimit = (
+      await CreditLimit.findOne(
+        { distributorCode: distCode },
+        { availableLimit: 1 }
+      )
+    ).availableLimit
+    // console.log('Available limit=>', availableLimit)
+    // console.log('InvoiceLoanAmount', invoiceLoanAmount)
+    // console.log('TotaLoanAmount=>', totalLoanAmount)
+    let actualAvailableLimit = availableLimit - totalLoanAmount
+    // console.log('Actual available limit', actualAvailableLimit)
+    return actualAvailableLimit >= invoiceLoanAmount
+  } else {
+    const availableLimit = (
+      await CreditLimit.findOne(
+        { distributorCode: distCode },
+        { availableLimit: 1 }
+      )
+    ).availableLimit
+    // console.log(invoiceLoanAmount, availableLimit)
+    // console.log(availableLimit >= invoiceLoanAmount)
+    return availableLimit >= invoiceLoanAmount
+  }
+}

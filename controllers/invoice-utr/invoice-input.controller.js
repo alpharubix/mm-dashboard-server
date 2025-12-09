@@ -6,6 +6,8 @@ import { Invoice } from '../../models/invoice.model.js'
 import { calculateBillingStatus } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 import {
+  checkAvailableLimit,
+  getInvoicesBasedOnStatus,
   isDistributorAllowed,
   isDistributorHasOverdue,
 } from '../email/email-service/service.js'
@@ -166,13 +168,42 @@ export async function invoiceInput(req, res) {
 
           // Log the result as in your original code
           console.log('overdue-check-result', hasOverdue)
-
           // Determine the final status
-          emailStatus = hasOverdue
-            ? EMAIL_STATUS.OVERDUE
-            : EMAIL_STATUS.ELIGIBLE
           if (hasOverdue) {
+            //if the distributor has overdue then update the email status and invoice status accordingly
+            emailStatus = EMAIL_STATUS.OVERDUE
             updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
+          } else {
+            //check for the available limit for the customer
+            //check if the dist have any invoice with pending with cux invoice status
+            const invoicesWithPendingWithCx = await getInvoicesBasedOnStatus(
+              distributorCode,
+              INV_STATUS.PENDING_WITH_CUSTOMER
+            )
+
+            if (invoicesWithPendingWithCx.length === 0) {
+              //If no invoice found for this distributor then calculate the available limit
+              const invoices = await getInvoicesBasedOnStatus(distributorCode, [
+                INV_STATUS.YET_TO_PROCESS,
+                INV_STATUS.IN_PROGRESS,
+              ])
+              const isLimitAvailable = await checkAvailableLimit(
+                invoices,
+                distributorCode,
+                invoice.loanAmount
+              )
+              console.log('availableLimit', checkAvailableLimit)
+              if (isLimitAvailable) {
+                emailStatus = EMAIL_STATUS.ELIGIBLE
+                updatedStatus = INV_STATUS.YET_TO_PROCESS
+              } else {
+                emailStatus = EMAIL_STATUS.INSUFF_AVAIL_LIMIT
+                updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
+              }
+            } else {
+              emailStatus = EMAIL_STATUS.INSUFF_AVAIL_LIMIT
+              updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
+            }
           }
         }
         // emailStatus is now correctly set to 'notEligible', 'overdue', or 'eligible'
