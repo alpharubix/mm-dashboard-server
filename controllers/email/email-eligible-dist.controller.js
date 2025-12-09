@@ -48,12 +48,10 @@ export async function getAllowdedDistEmailCount(req, res) {
 
     return res.status(200).json({
       data: data,
-      pageInfo: {
-        page: Number(page),
-        totalPage: totalpages,
-        total: totalDocs,
-        skip: skip,
-      },
+      page: Number(page),
+      totalPage: totalpages,
+      total: totalDocs,
+      skip: skip,
     })
   } catch (err) {
     console.log(
