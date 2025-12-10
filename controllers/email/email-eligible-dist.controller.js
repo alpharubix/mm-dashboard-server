@@ -1,16 +1,15 @@
-import { EMAIL_STATUS, INV_STATUS } from '../../conf/index.js'
+import { EMAIL_STATUS } from '../../conf/index.js'
 import { Distributor } from '../../models/distributor-list.model.js'
 import { getInvoicesBasedOnEmailStatus } from './email-service/service.js'
+
 export async function getAllowdedDistEmailCount(req, res) {
-  let page = req.query.page
-  let companyName = req.query.companyName
-  let distCode = req.query.distributorCode
-  const limit = 10
-  if (!page) {
-    page = 1
-  }
+  const page = Number(req.query.page || 1)
+  const companyName = String(req.query.companyName || '')
+  const distCode = String(req.query.distributorCode || '')
+  const limit = Number(req.query.limit || 10)
+
   try {
-    let filter = {}
+    const filter = {}
     if (companyName) {
       filter.companyName = new RegExp(companyName, 'i')
     }
@@ -18,8 +17,8 @@ export async function getAllowdedDistEmailCount(req, res) {
       filter.distributorCode = new RegExp(distCode, 'i')
     }
     const totalDocs = (await Distributor.find(filter)).length
-    console.log('Total docs', totalDocs)
-    const totalpages = Math.ceil(totalDocs / limit)
+    // console.log('Total docs', totalDocs)
+    const totalPages = Math.ceil(totalDocs / limit)
     const skip = (page - 1) * limit
     const data = await Distributor.find(filter, {
       _id: 0,
@@ -28,7 +27,7 @@ export async function getAllowdedDistEmailCount(req, res) {
       __v: 0,
     })
       .skip(skip)
-      .limit(limit * page)
+      .limit(limit)
       .lean()
 
     for (let dist of data) {
@@ -47,11 +46,12 @@ export async function getAllowdedDistEmailCount(req, res) {
     }
 
     return res.status(200).json({
-      data: data,
-      page: Number(page),
-      totalPage: totalpages,
+      message: 'Disbursement distributor data fetched successfully',
+      data,
+      page,
+      totalPages,
       total: totalDocs,
-      skip: skip,
+      skip,
     })
   } catch (err) {
     console.log(
