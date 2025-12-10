@@ -115,7 +115,6 @@ export async function getLenderTemplate(distributorCode) {
       { lender: 1 }
     )
   ).lender
-  //No need to check lenderName cause we will only get invoices once distributor is onboarded so it never be undefied or null
   const template = await EmailTemplate.findOne({ templateId: lenderName })
   if (!template) {
     return null
@@ -123,47 +122,100 @@ export async function getLenderTemplate(distributorCode) {
   return template
 }
 
-export async function getFormatedEmailBody(invoiceNumber, body) {
-  console.log({ invoiceNumber }, { body })
-  const doc = await Invoice.findOne(
-    { invoiceNumber: invoiceNumber },
-    {
-      distributorCode: 1,
-      invoiceNumber: 1,
-      invoiceDate: 1,
-      loanAmount: 1,
-      beneficiaryName: 1,
-      beneficiaryAccNo: 1,
-      bankName: 1,
-      ifscCode: 1,
-      branch: 1,
-      _id: 0,
-    }
-  )
-  const placeholders = doc.toObject()
-  placeholders.todayDate = format(Date.now(), 'dd-MM-yyyy')
+export async function getFormatedEmailBody(invoices, htmlTemplate) {
+  if (!invoices || invoices.length === 0) return htmlTemplate
 
-  placeholders.invoiceDate = format(doc.invoiceDate, 'dd-MM-yyyy')
+  const today = format(Date.now(), 'dd-MM-yyyy')
+  const primaryInvoice = invoices[0]
 
-  const filledBody = body.replace(/{{(.*?)}}/g, (match, key) => {
-    const trimmedKey = key.trim()
-    return placeholders[trimmedKey] || ''
-  })
-  return filledBody
+  const rowRegex = /<tr[^>]*>(?:(?!<\/tr>).)*?{{invoiceNumber}}[\s\S]*?<\/tr>/s
+
+  const match = htmlTemplate.match(rowRegex)
+  let processedHtml = htmlTemplate
+
+  if (match) {
+    const templateRow = match[0]
+    const allRowsHtml = invoices
+      .map((inv) => {
+        let row = templateRow
+
+        row = row.replace(/{{distributorCode}}/g, inv.distributorCode || 'NA')
+        row = row.replace(/{{invoiceNumber}}/g, inv.invoiceNumber || 'NA')
+
+        const invDate = inv.invoiceDate ? new Date(inv.invoiceDate) : null
+        row = row.replace(
+          /{{invoiceDate}}/g,
+          invDate ? format(invDate, 'dd-MM-yyyy') : 'NA'
+        )
+
+        row = row.replace(
+          /{{loanAmount}}/g,
+          formatAmount(inv.loanAmount) || '0'
+        )
+
+        return row
+      })
+      .join('')
+
+    processedHtml = processedHtml.replace(templateRow, allRowsHtml)
+  }
+
+  const staticData = {
+    '{{todayDate}}': today,
+    '{{beneficiaryName}}': primaryInvoice.beneficiaryName || 'NA',
+    '{{beneficiaryAccNo}}': primaryInvoice.beneficiaryAccNo || 'NA',
+    '{{bankName}}': primaryInvoice.bankName || 'NA',
+    '{{ifscCode}}': primaryInvoice.ifscCode || 'NA',
+    '{{branch}}': primaryInvoice.branch || 'NA',
+  }
+
+  for (const [key, value] of Object.entries(staticData)) {
+    const regex = new RegExp(key, 'g')
+    processedHtml = processedHtml.replace(regex, value)
+  }
+
+  return processedHtml
 }
 
-export async function getFormatedSubject(invoiceNumber, subject) {
-  const placeholders = (
-    await Invoice.findOne(
-      { invoiceNumber: invoiceNumber },
-      { companyName: 1, loanAmount: 1, _id: 0 }
-    )
-  ).toObject()
-  const filledSubject = subject.replace(/{{(.*?)}}/g, (match, key) => {
-    const trimmedKey = key.trim()
-    return placeholders[trimmedKey] || ''
-  })
-  return filledSubject
+export async function getFormatedSubject(invoices, subjectTemplate) {
+  if (!invoices || invoices.length === 0) return subjectTemplate
+
+  // 1. Calculate Total Amount
+  const totalAmount = invoices.reduce((sum, inv) => {
+    // Convert to number (remove commas if your string has them, or just use Number())
+    const amount = Number(inv.loanAmount) || 0
+    return sum + amount
+  }, 0)
+
+  // 2. Get Company Name
+  const primary = invoices[0]
+  // CRITICAL: Ensure your DB field is actually called 'companyName'.
+  // If it's 'distributorName' in DB, change this line to: primary.distributorName
+  const companyNameVal = primary.companyName || 'Distributor'
+
+  let formattedSubject = subjectTemplate
+
+  // 3. EXPLICIT REPLACEMENTS
+  // This replaces {{companyName}} in the subject string
+  formattedSubject = formattedSubject.replace(
+    /{{companyName}}/g,
+    companyNameVal
+  )
+
+  // This replaces {{loanAmount}} with the TOTAL calculated above
+  formattedSubject = formattedSubject.replace(
+    /{{loanAmount}}/g,
+    formatAmount(totalAmount)
+  )
+
+  // Just in case you need invoice numbers
+  const allInvoiceNumbers = invoices.map((i) => i.invoiceNumber).join(', ')
+  formattedSubject = formattedSubject.replace(
+    /{{invoiceNumber}}/g,
+    allInvoiceNumbers
+  )
+
+  return formattedSubject
 }
 
 async function fetchFileFromUrl(url) {
@@ -177,58 +229,69 @@ async function fetchFileFromUrl(url) {
   }
 }
 
-export async function generateInvoiceAttachments(invoice) {
+export async function generateInvoiceAttachments(invoices) {
   const attachments = []
   const today = format(Date.now(), 'dd-MM-yyyy')
   try {
-    // Generate CSV from invoice fields
-    const csvData = converter.json2csv([
-      {
-        Date: today,
-        'Lender Name': 'Kotak Mahindra',
-        'Distributor Name': invoice.companyName || 'NA',
-        'Distributor Code': invoice.distributorCode || 'NA',
-        'Contact Number': invoice.distributorPhone || 'NA',
-        'Email ID': invoice.distributorEmail || 'NA',
-        'Beneficiary Name': invoice.beneficiaryName || 'NA',
-        'Beneficiary A/c no': invoice.beneficiaryAccNo
-          ? `' ${invoice.beneficiaryAccNo}`
-          : 'NA',
-        'Bank Name': invoice.bankName || 'NA',
-        'IFSC Code': invoice.ifscCode || 'NA',
-        Branch: invoice.branch || 'NA',
-        'Invoice no': invoice.invoiceNumber || 'NA',
-        'Invoice amount': formatAmount(invoice.invoiceAmount) || 'NA',
-        'Invoice date': format(invoice.invoiceDate, 'dd-MM-yyyy') || 'NA',
-        'Loan Amount': formatAmount(invoice.loanAmount) || 'NA',
-        'Loan Disbursement Date': today || 'NA',
-        Tenure: '90 Days',
-      },
-    ])
+    // 1. Generate ONE Consolidated CSV
+    // Map all invoices to the CSV format structure
+    const csvRows = invoices.map((invoice) => ({
+      Date: today,
+      'Lender Name': 'Kotak Mahindra',
+      'Distributor Name': invoice.companyName || 'NA',
+      'Distributor Code': invoice.distributorCode || 'NA',
+      'Contact Number': invoice.distributorPhone || 'NA',
+      'Email ID': invoice.distributorEmail || 'NA',
+      'Beneficiary Name': invoice.beneficiaryName || 'NA',
+      'Beneficiary A/c no': invoice.beneficiaryAccNo
+        ? `' ${invoice.beneficiaryAccNo}`
+        : 'NA',
+      'Bank Name': invoice.bankName || 'NA',
+      'IFSC Code': invoice.ifscCode || 'NA',
+      Branch: invoice.branch || 'NA',
+      'Invoice no': invoice.invoiceNumber || 'NA',
+      'Invoice amount': formatAmount(invoice.invoiceAmount) || 'NA',
+      'Invoice date': format(invoice.invoiceDate, 'dd-MM-yyyy') || 'NA',
+      'Loan Amount': formatAmount(invoice.loanAmount) || 'NA',
+      'Loan Disbursement Date': today || 'NA',
+      Tenure: '90 Days',
+    }))
+
+    const csvData = converter.json2csv(csvRows)
 
     attachments.push({
-      filename: `invoice_${invoice.invoiceNumber}.csv`,
+      filename: `consolidated_invoices_${today}.csv`, // Changed filename
       content: csvData,
       contentType: 'text/csv',
     })
-  } catch (error) {
-    console.log('Error generating CSV:', error)
-    throw error
-  }
 
-  // Fetch and attach PDF from GCS
-  if (invoice.invoicePdfUrl) {
-    try {
-      const pdfBuffer = await fetchFileFromUrl(invoice.invoicePdfUrl)
-      attachments.push({
-        filename: `invoice_${invoice.invoiceNumber}.pdf`,
-        content: pdfBuffer,
-        contentType: 'application/pdf',
+    // 2. Fetch All PDFs Concurrently
+    const pdfPromises = invoices
+      .filter((inv) => inv.invoicePdfUrl) // Only process if URL exists
+      .map(async (invoice) => {
+        try {
+          const pdfBuffer = await fetchFileFromUrl(invoice.invoicePdfUrl)
+          return {
+            filename: `invoice_${invoice.invoiceNumber}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching PDF for ${invoice.invoiceNumber}:`,
+            error
+          )
+          return null // Return null on failure to allow others to succeed
+        }
       })
-    } catch (error) {
-      console.log('Error fetching PDF:', error)
-      throw error
-    }
+
+    const pdfAttachments = await Promise.all(pdfPromises)
+
+    // Filter out any failed fetches (nulls) and add to main array
+    attachments.push(...pdfAttachments.filter((item) => item !== null))
+  } catch (error) {
+    console.log('Error generating attachments:', error)
+    throw error
   }
 
   return attachments
@@ -250,4 +313,38 @@ export async function getInvoicesBasedOnStatus(distCode, status) {
     },
   })
   return invoices
+}
+export async function checkAvailableLimit(
+  invoices,
+  distCode,
+  invoiceLoanAmount
+) {
+  let totalLoanAmount = 0
+  if (invoices.length !== 0) {
+    invoices.forEach((invoice) => {
+      totalLoanAmount += invoice.loanAmount
+    })
+    const availableLimit = (
+      await CreditLimit.findOne(
+        { distributorCode: distCode },
+        { availableLimit: 1 }
+      )
+    ).availableLimit
+    // console.log('Available limit=>', availableLimit)
+    // console.log('InvoiceLoanAmount', invoiceLoanAmount)
+    // console.log('TotaLoanAmount=>', totalLoanAmount)
+    let actualAvailableLimit = availableLimit - totalLoanAmount
+    // console.log('Actual available limit', actualAvailableLimit)
+    return actualAvailableLimit >= invoiceLoanAmount
+  } else {
+    const availableLimit = (
+      await CreditLimit.findOne(
+        { distributorCode: distCode },
+        { availableLimit: 1 }
+      )
+    ).availableLimit
+    // console.log(invoiceLoanAmount, availableLimit)
+    // console.log(availableLimit >= invoiceLoanAmount)
+    return availableLimit >= invoiceLoanAmount
+  }
 }
