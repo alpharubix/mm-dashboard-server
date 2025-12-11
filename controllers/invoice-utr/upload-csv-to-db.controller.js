@@ -203,6 +203,13 @@ export async function invoiceCsvParseAndSave(req, res) {
                   'emailStatus'
                 )
               }
+              if (_status === INV_STATUS.NOT_PROCESSED) {
+                await updateInvoiceStatus(
+                  normalized.invoiceNumber,
+                  EMAIL_STATUS.NOT_ELIGIBLE,
+                  'emailStatus'
+                )
+              }
             }
           } else {
             throw new Error(
