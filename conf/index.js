@@ -49,3 +49,9 @@ export const INV_STATUS = {
   PENDING_WITH_LENDER: 'pendingWithLender',
   NOT_PROCESSED: 'notProcessed',
 }
+
+export const ROLES = {
+  SUPER_ADMIN: 'superAdmin',
+  ADMIN: 'admin',
+  VIEWER: 'viewer',
+}

@@ -1,6 +1,5 @@
-import { EMAIL_STATUS, INV_STATUS } from '../../conf/index.js'
+import { EMAIL_STATUS } from '../../conf/index.js'
 import { EmailTemplate } from '../../models/email-template.model.js'
-import { Invoice } from '../../models/invoice.model.js'
 import {
   generateInvoiceAttachments,
   getFormatedEmailBody,
@@ -60,7 +59,10 @@ export async function getTemplate(req, res) {
     }
 
     // 2. Generate Attachments (Consolidated CSV & PDFs)
-    const attachmentsArr = await generateInvoiceAttachments(invoices)
+    const attachmentsArr = await generateInvoiceAttachments(
+      invoices,
+      emailtemplate.templateId
+    )
 
     // 3. Generate Body
     // PASS THE FULL ARRAY HERE
