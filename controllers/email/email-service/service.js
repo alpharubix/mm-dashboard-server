@@ -125,54 +125,63 @@ export async function getLenderTemplate(distributorCode) {
 export async function getFormatedEmailBody(invoices, htmlTemplate) {
   if (!invoices || invoices.length === 0) return htmlTemplate
 
-  const today = format(Date.now(), 'dd-MM-yyyy')
-  const primaryInvoice = invoices[0]
+  const primaryData = invoices[0] // Used for static header/footer details
+  const today = format(new Date(), 'dd-MM-yyyy')
 
-  const rowRegex = /<tr[^>]*>(?:(?!<\/tr>).)*?{{invoiceNumber}}[\s\S]*?<\/tr>/s
+  // --- Helper: format data based on value type or key name ---
+  const getValue = (data, key) => {
+    // 1. Handle special manually injected keys or Overrides
+    if (key === 'todayDate') return today
 
-  const match = htmlTemplate.match(rowRegex)
+    // OVERRIDE: If the key is loanDisbursementDate, always use today's date
+    if (key === 'loanDisbursementDate') return today
+
+    const value = data[key]
+
+    // 2. Handle missing/null values
+    if (value === null || value === undefined || value === '') return 'NA'
+
+    // 3. Auto-format Dates (generic check for other date fields)
+    if (/date/i.test(key)) {
+      const dateObj = new Date(value)
+      if (!isNaN(dateObj.getTime())) return format(dateObj, 'dd-MM-yyyy')
+    }
+
+    // 4. Auto-format Money
+    if (/amount/i.test(key) && !isNaN(value)) {
+      return Number(value).toFixed(2)
+    }
+
+    return value
+  }
+
   let processedHtml = htmlTemplate
+
+  // --- Step 1: Handle the Repeating Table Row ---
+  // We look for the TR that specifically contains {{invoiceNumber}}
+  const rowRegex = /<tr[^>]*>(?:(?!<\/tr>).)*?{{invoiceNumber}}[\s\S]*?<\/tr>/i
+  const match = processedHtml.match(rowRegex)
 
   if (match) {
     const templateRow = match[0]
+
+    // Create a row for every invoice in the array
     const allRowsHtml = invoices
       .map((inv) => {
-        let row = templateRow
-
-        row = row.replace(/{{distributorCode}}/g, inv.distributorCode || 'NA')
-        row = row.replace(/{{invoiceNumber}}/g, inv.invoiceNumber || 'NA')
-
-        const invDate = inv.invoiceDate ? new Date(inv.invoiceDate) : null
-        row = row.replace(
-          /{{invoiceDate}}/g,
-          invDate ? format(invDate, 'dd-MM-yyyy') : 'NA'
-        )
-
-        row = row.replace(
-          /{{loanAmount}}/g,
-          formatAmount(inv.loanAmount) || '0'
-        )
-
-        return row
+        // Regex finds ALL {{keys}} in the row and replaces them with invoice data
+        return templateRow.replace(/{{(\w+)}}/g, (_, key) => getValue(inv, key))
       })
       .join('')
 
+    // Replace the single template row with our generated list
     processedHtml = processedHtml.replace(templateRow, allRowsHtml)
   }
 
-  const staticData = {
-    '{{todayDate}}': today,
-    '{{beneficiaryName}}': primaryInvoice.beneficiaryName || 'NA',
-    '{{beneficiaryAccNo}}': primaryInvoice.beneficiaryAccNo || 'NA',
-    '{{bankName}}': primaryInvoice.bankName || 'NA',
-    '{{ifscCode}}': primaryInvoice.ifscCode || 'NA',
-    '{{branch}}': primaryInvoice.branch || 'NA',
-  }
-
-  for (const [key, value] of Object.entries(staticData)) {
-    const regex = new RegExp(key, 'g')
-    processedHtml = processedHtml.replace(regex, value)
-  }
+  // --- Step 2: Handle Static Data (Header, Footer, Subject vars) ---
+  // Replace any remaining {{keys}} using the primary invoice data
+  processedHtml = processedHtml.replace(/{{(\w+)}}/g, (_, key) => {
+    return getValue(primaryData, key)
+  })
 
   return processedHtml
 }
@@ -229,41 +238,43 @@ async function fetchFileFromUrl(url) {
   }
 }
 
-export async function generateInvoiceAttachments(invoices) {
+export async function generateInvoiceAttachments(invoices, templateId) {
   const attachments = []
   const today = format(Date.now(), 'dd-MM-yyyy')
   try {
-    // 1. Generate ONE Consolidated CSV
-    // Map all invoices to the CSV format structure
-    const csvRows = invoices.map((invoice) => ({
-      Date: today,
-      'Lender Name': 'Kotak Mahindra',
-      'Distributor Name': invoice.companyName || 'NA',
-      'Distributor Code': invoice.distributorCode || 'NA',
-      'Contact Number': invoice.distributorPhone || 'NA',
-      'Email ID': invoice.distributorEmail || 'NA',
-      'Beneficiary Name': invoice.beneficiaryName || 'NA',
-      'Beneficiary A/c no': invoice.beneficiaryAccNo
-        ? `' ${invoice.beneficiaryAccNo}`
-        : 'NA',
-      'Bank Name': invoice.bankName || 'NA',
-      'IFSC Code': invoice.ifscCode || 'NA',
-      Branch: invoice.branch || 'NA',
-      'Invoice no': invoice.invoiceNumber || 'NA',
-      'Invoice amount': formatAmount(invoice.invoiceAmount) || 'NA',
-      'Invoice date': format(invoice.invoiceDate, 'dd-MM-yyyy') || 'NA',
-      'Loan Amount': formatAmount(invoice.loanAmount) || 'NA',
-      'Loan Disbursement Date': today || 'NA',
-      Tenure: '90 Days',
-    }))
+    // 1. Generate ONE Consolidated CSV only if lender is Kotak Mahindra
+    if (templateId === 'Kotak Mahindra') {
+      // Map all invoices to the CSV format structure
+      const csvRows = invoices.map((invoice) => ({
+        Date: today,
+        'Lender Name': 'Kotak Mahindra',
+        'Distributor Name': invoice.companyName || 'NA',
+        'Distributor Code': invoice.distributorCode || 'NA',
+        'Contact Number': invoice.distributorPhone || 'NA',
+        'Email ID': invoice.distributorEmail || 'NA',
+        'Beneficiary Name': invoice.beneficiaryName || 'NA',
+        'Beneficiary A/c no': invoice.beneficiaryAccNo
+          ? `' ${invoice.beneficiaryAccNo}`
+          : 'NA',
+        'Bank Name': invoice.bankName || 'NA',
+        'IFSC Code': invoice.ifscCode || 'NA',
+        Branch: invoice.branch || 'NA',
+        'Invoice no': invoice.invoiceNumber || 'NA',
+        'Invoice amount': formatAmount(invoice.invoiceAmount) || 'NA',
+        'Invoice date': format(invoice.invoiceDate, 'dd-MM-yyyy') || 'NA',
+        'Loan Amount': formatAmount(invoice.loanAmount) || 'NA',
+        'Loan Disbursement Date': today || 'NA',
+        Tenure: '90 Days',
+      }))
 
-    const csvData = converter.json2csv(csvRows)
+      const csvData = converter.json2csv(csvRows)
 
-    attachments.push({
-      filename: `consolidated_invoices_${today}.csv`, // Changed filename
-      content: csvData,
-      contentType: 'text/csv',
-    })
+      attachments.push({
+        filename: `consolidated_invoices_${today}.csv`,
+        content: csvData,
+        contentType: 'text/csv',
+      })
+    }
 
     // 2. Fetch All PDFs Concurrently
     const pdfPromises = invoices
