@@ -55,3 +55,11 @@ export const ROLES = {
   ADMIN: 'admin',
   VIEWER: 'viewer',
 }
+
+export const LENDER = {
+  KOTAK_MAHINDRA: 'Kotak Mahindra',
+  PROFECTUS_CAPITAL: 'Profectus Capital',
+  TYGER_CAPITAL: 'Tyger Capital',
+  RUPIFI: 'Rupifi',
+  MUTHOOT: 'Muthoot',
+}

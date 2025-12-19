@@ -1,4 +1,4 @@
-import { EMAIL_STATUS } from '../../conf/index.js'
+import { EMAIL_STATUS, LENDER } from '../../conf/index.js'
 import { EmailTemplate } from '../../models/email-template.model.js'
 import {
   generateInvoiceAttachments,
@@ -72,7 +72,15 @@ export async function getTemplate(req, res) {
     // const allInvoiceNumbers = invoices.map((i) => i.invoiceNumber).join(', ')
     const subject = await getFormatedSubject(invoices, emailtemplate.subject)
 
-    // 4. Prepare Response
+    // specific requirement for Tyger Capital
+    let toAddress = emailtemplate.to ?? ''
+
+    if (emailtemplate.templateId === LENDER.TYGER_CAPITAL) {
+      // Use distributorEmail from the first invoice, fallback to 'NA' if missing
+      toAddress = invoices[0]?.distributorEmail || 'NA'
+    }
+
+    // Prepare Response
     const formattedAttachments = attachmentsArr.map((att) => ({
       filename: att.filename,
       mime: att.contentType,
@@ -83,7 +91,7 @@ export async function getTemplate(req, res) {
       message: 'template fetch successful',
       data: {
         from: emailtemplate.from ?? '',
-        to: emailtemplate.to ?? '',
+        to: toAddress,
         cc: emailtemplate.cc ?? '',
         subject,
         body,

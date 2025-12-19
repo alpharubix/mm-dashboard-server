@@ -7,6 +7,7 @@ export async function getAllowdedDistEmailCount(req, res) {
   const companyName = String(req.query.companyName || '')
   const distCode = String(req.query.distributorCode || '')
   const limit = Number(req.query.limit || 10)
+  const anchorId = String(req.query.anchorId || '')
 
   try {
     const filter = {}
@@ -15,6 +16,9 @@ export async function getAllowdedDistEmailCount(req, res) {
     }
     if (distCode) {
       filter.distributorCode = new RegExp(distCode, 'i')
+    }
+    if (anchorId) {
+      filter.anchorId = new RegExp(anchorId, 'i')
     }
     const totalDocs = (await Distributor.find(filter)).length
     // console.log('Total docs', totalDocs)
