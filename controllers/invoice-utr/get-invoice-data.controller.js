@@ -101,7 +101,7 @@ export const getInvoiceData = async (req, res) => {
         }
 
         const data = await Invoice.find(filter)
-          .sort({ invoiceDate: -1 })
+          .sort({ invoiceDate: -1, _id: 1 })
           .limit(exportLimit) // Safety limit
 
         return res.status(200).json({
@@ -145,7 +145,7 @@ export const getInvoiceData = async (req, res) => {
       const data = await Invoice.find(filter, projection)
         .skip(skip)
         .limit(Number(limit))
-        .sort({ invoiceDate: -1 })
+        .sort({ invoiceDate: -1, _id: 1 })
 
       // TODO: Fix skip
       res.status(200).json({

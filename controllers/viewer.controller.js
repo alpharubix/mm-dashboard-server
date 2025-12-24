@@ -48,7 +48,7 @@ export const getViewerData = async (req, res) => {
         distributorPhone: 1,
         invoicePdfUrl: 1,
         _id: 0,
-      }).sort({ invoiceDate: -1 }),
+      }).sort({ invoiceDate: -1, _id: 1 }),
     ])
 
     res.status(200).json({
