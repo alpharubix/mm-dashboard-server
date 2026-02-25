@@ -13,8 +13,17 @@ export const getViewerData = async (req, res) => {
     return res.status(400).json({ message: 'Phone number required' })
   }
 
+  // Pagination parameters
+  const page = Math.max(1, Number(req.query.page || 1))
+  const limit = Math.max(1, Number(req.query.limit || 10))
+  const skip = (page - 1) * limit
+
   try {
     const phoneQuery = { distributorPhone: user.username }
+
+    // Fetch total count for pagination metadata
+    const totalInvoices = await Invoice.countDocuments(phoneQuery)
+    const totalPages = Math.ceil(totalInvoices / limit)
 
     const [onboardData, credLimit, invoiceData] = await Promise.all([
       Onboard.find(phoneQuery, {
@@ -32,6 +41,9 @@ export const getViewerData = async (req, res) => {
         overdue: 1,
         anchorId: 1,
         distributorPhone: 1,
+        limitExpiryDate: 1,
+        pendingInvoices: 1,
+        operativeLimit: 1,
         _id: 0,
       }),
 
@@ -48,14 +60,29 @@ export const getViewerData = async (req, res) => {
         distributorPhone: 1,
         invoicePdfUrl: 1,
         _id: 0,
-      }).sort({ invoiceDate: -1, _id: 1 }),
+      })
+        .sort({ invoiceDate: -1, _id: 1 })
+        .skip(skip)
+        .limit(limit),
     ])
 
     res.status(200).json({
-      data: { onboardData, credLimit, invoiceData },
+      data: {
+        onboardData,
+        credLimit,
+        invoiceData,
+      },
+      pagination: {
+        total: totalInvoices,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     })
   } catch (error) {
-    console.log('Database query error:', error)
+    console.error('Database query error:', error)
     res.status(500).json({ message: 'Internal server error' })
   }
 }
