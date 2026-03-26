@@ -11,6 +11,7 @@ import onboardRoutes from './routes/onboard.route.js'
 import userRoutes from './routes/user.route.js'
 import viewerRoutes from './routes/viewer.route.js'
 import distributorRoutes from './routes/whitelist-dist.route.js'
+import bannerRoutes from './routes/banner.route.js'
 
 const routes = [
   authRoutes,
@@ -21,6 +22,7 @@ const routes = [
   viewerRoutes,
   emailRoutes,
   distributorRoutes,
+  bannerRoutes,
 ]
 
 export const app = express()
