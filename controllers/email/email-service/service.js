@@ -7,14 +7,10 @@ import { Distributor } from '../../../models/distributor-list.model.js'
 import { EmailTemplate } from '../../../models/email-template.model.js'
 import { Invoice } from '../../../models/invoice.model.js'
 import { formatAmount } from '../../../utils/index.js'
-
+const TERMINAL_STATUSES = [INV_STATUS.PROCESSED, INV_STATUS.NOT_PROCESSED]
 export async function isDistributorAllowed(distCode) {
   const distributor = await Distributor.findOne({ distributorCode: distCode })
-  if (distributor) {
-    return true
-  } else {
-    return false
-  }
+  return !!distributor
 }
 export async function getInvoices(distCode) {
   const invoices = await Invoice.find({
@@ -49,21 +45,23 @@ export async function updateInvoiceStatus(
   statusToBeUpdated,
   fieldName
 ) {
-  if (typeof invoices == 'string') {
-    const updateResult = await Invoice.findOneAndUpdate(
+  if (!invoices || (Array.isArray(invoices) && invoices.length === 0)) {
+    return null
+  }
+
+  if (typeof invoices === 'string') {
+    return await Invoice.findOneAndUpdate(
       { invoiceNumber: invoices },
       { $set: { [fieldName]: statusToBeUpdated } }
     )
-    return updateResult
   }
-  if (Array.isArray(invoices) && invoices.length > 0) {
-    // Bulk update case
+
+  if (Array.isArray(invoices)) {
     const invoiceNumbers = invoices.map((i) => i.invoiceNumber)
-    const result = await Invoice.updateMany(
+    return await Invoice.updateMany(
       { invoiceNumber: { $in: invoiceNumbers } },
       { $set: { [fieldName]: statusToBeUpdated } }
     )
-    return result // returns { acknowledged: true, matchedCount, modifiedCount }
   }
 }
 
@@ -310,18 +308,15 @@ export async function generateInvoiceAttachments(invoices, templateId) {
 export async function getInvoicesBasedOnEmailStatus(distCode, status) {
   const invoices = await Invoice.find({
     distributorCode: distCode,
-    emailStatus: {
-      $in: status,
-    },
+    emailStatus: { $in: status },
+    status: { $nin: TERMINAL_STATUSES },
   })
   return invoices
 }
 export async function getInvoicesBasedOnStatus(distCode, status) {
   const invoices = await Invoice.find({
     distributorCode: distCode,
-    status: {
-      $in: status,
-    },
+    status: { $in: status },
   })
   return invoices
 }

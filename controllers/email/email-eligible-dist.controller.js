@@ -40,7 +40,7 @@ export async function getAllowdedDistEmailCount(req, res) {
         EMAIL_STATUS.ELIGIBLE
       )
       dist.totalEligibleInvoiceCount = invoices.length
-      if (invoices.lenght === 0) {
+      if (invoices.length === 0) {
         dist.invoiceNumbers = []
       } else {
         dist.invoiceNumbers = invoices.map((inv, index) => {

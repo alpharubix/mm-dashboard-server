@@ -1,7 +1,7 @@
 import { INV_STATUS } from '../conf/index.js'
 import { Invoice } from '../models/invoice.model.js'
 
-const NULL_VALUES = [
+const BLANK_UTR_VALUES = [
   null,
   '',
   'NA',
@@ -11,8 +11,6 @@ const NULL_VALUES = [
   '-',
   'nil',
   'none',
-  0,
-  '0',
   '.',
   '_',
 ]
@@ -22,8 +20,8 @@ export const calculatePendingInvoices = async (distributorCode) => {
     {
       $match: {
         distributorCode,
-        status: { $ne: INV_STATUS.NOT_PROCESSED },
-        utr: { $in: NULL_VALUES },
+        status: { $nin: [INV_STATUS.NOT_PROCESSED, INV_STATUS.PROCESSED] },
+        $or: [{ utr: { $in: BLANK_UTR_VALUES } }, { utr: { $exists: false } }],
       },
     },
     {
