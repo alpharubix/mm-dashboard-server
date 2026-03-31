@@ -4,10 +4,10 @@ import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 
 import { calculateBillingStatus } from '../../utils/index.js'
+import { acquireLock, releaseLock } from '../../utils/recalculation-lock.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 import {
   checkAvailableLimit,
-  getInvoicesBasedOnStatus,
   isDistributorAllowed,
   isDistributorHasOverdue,
 } from '../email/email-service/service.js'
@@ -21,29 +21,25 @@ export async function invoiceInput(req, res) {
     const invoices = req.body
     const anchorId = req.user.companyId
 
-    // Input validation
     if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
       return res.status(400).json({ error: 'No invoice data provided' })
     }
 
-    // Rate limiting - prevent abuse
     if (invoices.length > 1000) {
       return res
         .status(400)
         .json({ error: 'Too many invoices. Maximum 1000 per request' })
     }
 
-    // Validate required fields and constraints
     const validationErrors = {
       missingNumber: [],
       negativeInvoiceAmount: [],
       negativeLoanAmount: [],
       loanExceedsInvoice: [],
-      invalidFormat: [], // Added for non-numeric strings
+      invalidFormat: [],
     }
 
     invoices.forEach((inv, index) => {
-      // 1. Check Invoice Number
       if (
         !inv.invoiceNumber ||
         typeof inv.invoiceNumber !== 'string' ||
@@ -54,40 +50,30 @@ export async function invoiceInput(req, res) {
       }
 
       const invNum = inv.invoiceNumber.trim()
-
-      // CONVERT TO NUMBERS HERE
       const invAmount = Number(inv.invoiceAmount)
       const loanAmount =
         inv.loanAmount !== undefined && inv.loanAmount !== null
           ? Number(inv.loanAmount)
           : null
 
-      // Check if they are valid numbers (not NaN)
       if (isNaN(invAmount) || (loanAmount !== null && isNaN(loanAmount))) {
         validationErrors.invalidFormat.push(invNum)
         return
       }
 
-      // 2. Check Negative Invoice Amount
       if (invAmount < 0) {
         validationErrors.negativeInvoiceAmount.push(invNum)
       }
 
-      // 3. Check Loan Amount Logic
       if (loanAmount !== null) {
-        // Check A: Loan cannot be negative
         if (loanAmount < 0) {
           validationErrors.negativeLoanAmount.push(invNum)
-        }
-        // Check B: Loan cannot be greater than invoice
-        // Now comparing numbers: 10000000 > 12000 will be TRUE
-        else if (loanAmount > invAmount) {
+        } else if (loanAmount > invAmount) {
           validationErrors.loanExceedsInvoice.push(invNum)
         }
       }
     })
 
-    // Return error if any validation bucket has content
     if (
       validationErrors.missingNumber.length > 0 ||
       validationErrors.negativeInvoiceAmount.length > 0 ||
@@ -95,17 +81,14 @@ export async function invoiceInput(req, res) {
       validationErrors.loanExceedsInvoice.length > 0 ||
       validationErrors.invalidFormat.length > 0
     ) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: validationErrors,
-      })
+      return res
+        .status(400)
+        .json({ error: 'Validation failed', details: validationErrors })
     }
 
-    // Check for duplicates in request data
     const invoiceNumbers = invoices.map((inv) => inv.invoiceNumber.trim())
     const duplicateNumbers = new Set()
 
-    // Find which invoice numbers appear more than once
     invoiceNumbers.forEach((num, index) => {
       if (
         invoiceNumbers.indexOf(num) !== index ||
@@ -115,7 +98,6 @@ export async function invoiceInput(req, res) {
       }
     })
 
-    // Filter out ALL invoices with duplicate numbers
     const uniqueInvoices = invoices.filter(
       (invoice) => !duplicateNumbers.has(invoice.invoiceNumber.trim())
     )
@@ -128,12 +110,10 @@ export async function invoiceInput(req, res) {
     const errors = []
     const skippedInvoices = []
 
-    // Get unique invoice numbers for DB check
     const uniqueInvoiceNumbers = uniqueInvoices.map((inv) =>
       inv.invoiceNumber.trim()
     )
 
-    // Batch check existing invoices (performance optimization)
     const existingInvoices = await Invoice.find({
       invoiceNumber: { $in: uniqueInvoiceNumbers },
       anchorId,
@@ -145,69 +125,53 @@ export async function invoiceInput(req, res) {
       existingInvoices.map((inv) => inv.invoiceNumber)
     )
 
-    // Process invoices
     for (const invoice of uniqueInvoices) {
       try {
         const invoiceNumber = invoice.invoiceNumber.trim()
 
-        // Skip if already exists
         if (existingNumbers.has(invoiceNumber)) {
           skippedCount++
           skippedInvoices.push(invoiceNumber)
           continue
         }
-        console.log('Logging invoice before', invoice)
-        let emailStatus = EMAIL_STATUS.NOT_ELIGIBLE // Set default emailstatus
-        let updatedStatus = INV_STATUS.YET_TO_PROCESS //set default status
+
+        let emailStatus = EMAIL_STATUS.NOT_ELIGIBLE
+        let updatedStatus = INV_STATUS.YET_TO_PROCESS
         const distributorCode = invoice.distributorCode
 
-        // Check whitelisting status first
         if (await isDistributorAllowed(distributorCode)) {
-          // If whitelisted, check the overdue status once and store the result
-          const hasOverdue = await isDistributorHasOverdue(distributorCode)
+          const locked = await acquireLock(distributorCode)
 
-          // Log the result as in your original code
-          console.log('overdue-check-result', hasOverdue)
-          // Determine the final status
-          if (hasOverdue) {
-            //if the distributor has overdue then update the email status and invoice status accordingly
-            emailStatus = EMAIL_STATUS.OVERDUE
+          if (!locked) {
+            // Another recalculation running — safe fallback
+            emailStatus = EMAIL_STATUS.INSUFF_AVAIL_LIMIT
             updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
           } else {
-            //check for the available limit for the customer
-            //check if the dist have any invoice with pending with cux invoice status
-            const invoicesWithPendingWithCx = await getInvoicesBasedOnStatus(
-              distributorCode,
-              INV_STATUS.PENDING_WITH_CUSTOMER
-            )
+            try {
+              const hasOverdue = await isDistributorHasOverdue(distributorCode)
 
-            if (invoicesWithPendingWithCx.length === 0) {
-              //If no invoice found for this distributor then calculate the available limit
-              const invoices = await getInvoicesBasedOnStatus(distributorCode, [
-                INV_STATUS.YET_TO_PROCESS,
-                INV_STATUS.IN_PROGRESS,
-              ])
-              const isLimitAvailable = await checkAvailableLimit(
-                invoices,
-                distributorCode,
-                invoice.loanAmount
-              )
-              console.log('availableLimit', checkAvailableLimit)
-              if (isLimitAvailable) {
-                emailStatus = EMAIL_STATUS.ELIGIBLE
-                updatedStatus = INV_STATUS.YET_TO_PROCESS
-              } else {
-                emailStatus = EMAIL_STATUS.INSUFF_AVAIL_LIMIT
+              if (hasOverdue) {
+                emailStatus = EMAIL_STATUS.OVERDUE
                 updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
+              } else {
+                const isLimitAvailable = await checkAvailableLimit(
+                  distributorCode,
+                  invoice.loanAmount
+                )
+                if (isLimitAvailable) {
+                  emailStatus = EMAIL_STATUS.ELIGIBLE
+                  updatedStatus = INV_STATUS.YET_TO_PROCESS
+                } else {
+                  emailStatus = EMAIL_STATUS.INSUFF_AVAIL_LIMIT
+                  updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
+                }
               }
-            } else {
-              emailStatus = EMAIL_STATUS.INSUFF_AVAIL_LIMIT
-              updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
+            } finally {
+              await releaseLock(distributorCode)
             }
           }
         }
-        // emailStatus is now correctly set to 'notEligible', 'overdue', or 'eligible'
-        // Create invoice with controlled data
+
         const invoiceData = {
           ...invoice,
           invoiceNumber,
@@ -216,11 +180,10 @@ export async function invoiceInput(req, res) {
           emailStatus,
           status: updatedStatus,
         }
-        console.log('Logging invoice after ', invoiceData)
+
         await Invoice.create(invoiceData)
         successCount++
 
-        // Update pending invoices calculation
         if (invoice.distributorCode) {
           try {
             const pendingInvoices = await calculatePendingInvoices(
@@ -233,7 +196,6 @@ export async function invoiceInput(req, res) {
             if (creditLimit) {
               const currentAvailable =
                 creditLimit.availableLimit - pendingInvoices
-
               const billingStatus = calculateBillingStatus(
                 currentAvailable,
                 creditLimit.overdue
@@ -248,7 +210,6 @@ export async function invoiceInput(req, res) {
               'Failed to update pending invoices:',
               updateError.message
             )
-            // Don't fail the whole operation, just log the error
           }
         }
       } catch (invoiceError) {
@@ -260,7 +221,6 @@ export async function invoiceInput(req, res) {
       }
     }
 
-    // Build comprehensive response
     const response = {
       message: `${successCount} invoice(s) created, ${skippedCount} skipped (already exists)${jsonDuplicatesCount > 0 ? `, ${jsonDuplicatesCount} removed (duplicates in request)` : ''}`,
       totalCreated: successCount,
@@ -270,18 +230,9 @@ export async function invoiceInput(req, res) {
       totalInvoices: invoices.length,
     }
 
-    // Add optional arrays only if they have data
-    if (skippedInvoices.length > 0) {
-      response.skippedInvoices = skippedInvoices
-    }
-
-    if (jsonDuplicates.length > 0) {
-      response.duplicatesRemoved = jsonDuplicates
-    }
-
-    if (errors.length > 0) {
-      response.errors = errors
-    }
+    if (skippedInvoices.length > 0) response.skippedInvoices = skippedInvoices
+    if (jsonDuplicates.length > 0) response.duplicatesRemoved = jsonDuplicates
+    if (errors.length > 0) response.errors = errors
 
     res.status(200).json(response)
   } catch (error) {
@@ -289,6 +240,3 @@ export async function invoiceInput(req, res) {
     res.status(500).json({ error: 'Invoice creation failed' })
   }
 }
-
-// v1 https://claude.ai/chat/6635d129-453b-4942-9c06-d9416a05d4ac
-// v2 https://claude.ai/chat/60e01997-1735-4057-84ad-d5461e4a4591
