@@ -154,8 +154,16 @@ export async function invoiceInput(req, res) {
                 emailStatus = EMAIL_STATUS.OVERDUE
                 updatedStatus = INV_STATUS.PENDING_WITH_CUSTOMER
               } else {
+                const pendingInvoicesList = await Invoice.find({
+                  distributorCode: invoice.distributorCode,
+                  status: {
+                    $nin: [INV_STATUS.NOT_PROCESSED, INV_STATUS.PROCESSED],
+                  },
+                }).lean()
+
                 const isLimitAvailable = await checkAvailableLimit(
-                  distributorCode,
+                  pendingInvoicesList,
+                  invoice.distributorCode,
                   invoice.loanAmount
                 )
                 if (isLimitAvailable) {
