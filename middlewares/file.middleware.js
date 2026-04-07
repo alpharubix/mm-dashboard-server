@@ -44,7 +44,7 @@ export function uploadPdf() {
       if (file.mimetype === 'application/pdf') {
         cb(null, true)
       } else {
-        cb(new Error('Only PDF files allowed'))
+        cb(null, false) // reject silently, controller handles it
       }
     },
   })

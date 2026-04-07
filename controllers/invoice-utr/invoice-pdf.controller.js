@@ -1,18 +1,37 @@
 import path from 'path'
 import { Invoice } from '../../models/invoice.model.js'
+import logger from '../../utils/logger.js'
 import { uploadPdfToGcs } from '../../utils/pdf-upload.js'
 
 export async function invoicePdf(req, res) {
   try {
     if (req.user.role !== 'admin') {
-      return res.status(401).json({ message: 'Forbidden Insufficent role' })
+      return res.status(403).json({ message: 'Forbidden: Insufficient role' })
     }
+
     const files = req.files
     const anchorId = req.user.companyId
 
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No PDF files uploaded' })
     }
+
+    const invoiceNumbers = files.map((f) =>
+      path.parse(f.originalname).name.trim()
+    )
+    
+    logger.info({ invoiceNumbers, anchorId }, 'PDF upload lookup')
+
+    const existingInvoices = await Invoice.find({
+      invoiceNumber: { $in: invoiceNumbers },
+      anchorId,
+    }).lean()
+
+    logger.info({ found: existingInvoices.length }, 'Invoices found in DB')
+
+    const invoiceMap = new Map(
+      existingInvoices.map((inv) => [inv.invoiceNumber, inv])
+    )
 
     let successCount = 0
     let skippedCount = 0
@@ -21,14 +40,14 @@ export async function invoicePdf(req, res) {
 
     for (const file of files) {
       try {
-        // Get invoice number from filename (removes .pdf)
-        const invoiceNumber = parseInt(path.parse(file.originalname).name)
+        const invoiceNumber = path.parse(file.originalname).name.trim()
 
-        // Check if invoice exists for this anchor
-        const existingInvoice = await Invoice.findOne({
-          invoiceNumber,
-          anchorId,
-        })
+        if (file.mimetype !== 'application/pdf') {
+          errors.push({ filename: file.originalname, error: 'Not a PDF' })
+          continue
+        }
+
+        const existingInvoice = invoiceMap.get(invoiceNumber)
 
         if (!existingInvoice) {
           errors.push({
@@ -38,30 +57,26 @@ export async function invoicePdf(req, res) {
           continue
         }
 
-        // Check if PDF already uploaded - skip to prevent duplicate GCS uploads
         if (existingInvoice.invoicePdfUrl) {
           skippedCount++
           skippedInvoices.push(invoiceNumber)
           continue
         }
 
-        // Upload to GCS: anchors/123/invoices/10019.pdf
         const destFileName = `anchors/${anchorId}/invoices/${file.originalname}`
         const publicUrl = await uploadPdfToGcs(file.buffer, destFileName)
 
-        // Update invoice with PDF URL
         await Invoice.updateOne(
           { _id: existingInvoice._id },
           { invoicePdfUrl: publicUrl }
         )
-
         successCount++
       } catch (fileError) {
-        console.log(fileError)
-        errors.push({
-          filename: file.originalname,
-          error: 'Upload failed',
-        })
+        logger.error(
+          { err: fileError, filename: file.originalname },
+          'PDF upload failed'
+        )
+        errors.push({ filename: file.originalname, error: 'Upload failed' })
       }
     }
 
@@ -74,6 +89,7 @@ export async function invoicePdf(req, res) {
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {
+    logger.error({ err: error }, 'invoicePdf handler failed')
     res.status(500).json({ error: 'Upload failed' })
   }
 }
