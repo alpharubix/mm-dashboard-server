@@ -8,3 +8,13 @@ export function isSuperAdmin(req, res, next) {
     res.status(401).json({ message: 'Forbidden: Insufficient role' })
   }
 }
+
+export function isAdminOrSuperAdmin(req, res, next) {
+  const user = req.user
+  if (user && (user.role === 'superAdmin' || user.role === 'admin')) {
+    next()
+  } else {
+    res.status(403).json({ message: 'Forbidden: Access restricted to Admin and SuperAdmin' })
+  }
+}
+
