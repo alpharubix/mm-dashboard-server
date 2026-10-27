@@ -63,3 +63,9 @@ export const LENDER = {
   RUPIFI: 'Rupifi',
   MUTHOOT: 'Muthoot',
 }
+
+export const INVOICE_PAYMENT_STATUS = {
+  PENDING_PAYMENT: 'Pending Payment',
+  PAID: 'Paid',
+  OVERDUE: 'Overdue',
+}

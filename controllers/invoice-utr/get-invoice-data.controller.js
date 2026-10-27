@@ -1,6 +1,7 @@
 import { parse } from 'date-fns'
 
 import { Invoice } from '../../models/invoice.model.js'
+import { computeInvoiceAgeing } from '../../utils/index.js'
 
 export const getInvoiceData = async (req, res) => {
   const user = req.user
@@ -104,9 +105,11 @@ export const getInvoiceData = async (req, res) => {
           .sort({ invoiceDate: -1, _id: 1 })
           .limit(exportLimit) // Safety limit
 
+        const computedData = data.map(computeInvoiceAgeing)
+
         return res.status(200).json({
           message: 'Invoice data fetched successfully',
-          data,
+          data: computedData,
           total,
           isExport: true,
         })
@@ -147,10 +150,12 @@ export const getInvoiceData = async (req, res) => {
         .limit(Number(limit))
         .sort({ invoiceDate: -1, _id: 1 })
 
+      const computedData = data.map(computeInvoiceAgeing)
+
       // TODO: Fix skip
       res.status(200).json({
         message: 'Invoice data fetched successfully',
-        data,
+        data: computedData,
         total,
         page: Number(page),
         totalPages,

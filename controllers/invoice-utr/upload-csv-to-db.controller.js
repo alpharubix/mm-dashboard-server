@@ -3,15 +3,41 @@ import { parse } from 'date-fns'
 import fs from 'fs'
 import { unlink } from 'fs/promises'
 
-import { EMAIL_STATUS, INV_STATUS, NULL_VALUES } from '../../conf/index.js'
+import { EMAIL_STATUS, INV_STATUS, INVOICE_PAYMENT_STATUS, NULL_VALUES } from '../../conf/index.js'
 import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
-import { toCamelCase } from '../../utils/index.js'
+import { computeInvoiceAgeing, getPaymentDueDays, toCamelCase } from '../../utils/index.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 import {
   isDistributorAllowed,
   updateInvoiceStatus,
 } from '../email/email-service/service.js'
+
+function parseFlexibleDate(val) {
+  if (!val) return null
+  const str = val.toString().trim()
+  const formats = [
+    'dd-MM-yy',
+    'dd-MM-yyyy',
+    'yyyy-MM-dd',
+    'dd/MM/yy',
+    'dd/MM/yyyy',
+    'MM/dd/yyyy',
+    'd-M-yy',
+    'd-M-yyyy',
+  ]
+  for (const fmt of formats) {
+    const d = parse(str, fmt, new Date())
+    if (!Number.isNaN(d.getTime())) {
+      return d
+    }
+  }
+  const iso = new Date(str)
+  if (!Number.isNaN(iso.getTime())) {
+    return iso
+  }
+  return null
+}
 
 function normalizeValue(value) {
   if (typeof value !== 'string') return value
@@ -41,6 +67,9 @@ export async function invoiceCsvParseAndSave(req, res) {
     'distributorPhone',
     'distributorEmail',
     'fundingType',
+    'lenderName',
+    'invoicePaymentStatus',
+    'paymentReceivedDate',
   ]
 
   // Fields that will be updated in database
@@ -49,6 +78,12 @@ export async function invoiceCsvParseAndSave(req, res) {
     'utr',
     'status',
     'loanAmount',
+    'lenderName',
+    'invoicePaymentStatus',
+    'paymentReceivedDate',
+    'paymentDueDays',
+    'paymentDueDate',
+    'currentAgeingDays',
   ]
 
   if (!req.file?.path) {
@@ -115,7 +150,19 @@ export async function invoiceCsvParseAndSave(req, res) {
       })
     }
 
-    // 4) Process and validate each row
+    // 4) Fetch existing invoices from DB for fallback during calculations
+    const existingInvoices = await Invoice.find({
+      invoiceNumber: { $in: invoiceNumbers },
+    })
+      .select(
+        'invoiceNumber anchorId loanDisbursementDate lenderName invoicePaymentStatus paymentReceivedDate paymentDueDays'
+      )
+      .lean()
+    const invoiceDbMap = new Map(
+      existingInvoices.map((inv) => [inv.invoiceNumber, inv])
+    )
+
+    // 5) Process and validate each row
     const updateOps = []
     const processingErrors = []
     const skippedRows = []
@@ -139,6 +186,8 @@ export async function invoiceCsvParseAndSave(req, res) {
           throw new Error(`Distributor code is required`)
         }
 
+        const dbInvoice = invoiceDbMap.get(normalized.invoiceNumber) || {}
+
         // Build update fields - only the fields we want to update
         const updateFields = {}
 
@@ -158,18 +207,92 @@ export async function invoiceCsvParseAndSave(req, res) {
 
         // Handle loanDisbursementDate
         if (normalized.loanDisbursementDate) {
-          const loanDate = parse(
-            normalized.loanDisbursementDate,
-            'dd-MM-yy',
-            new Date()
-          )
-          if (!Number.isNaN(loanDate.getTime())) {
+          const loanDate = parseFlexibleDate(normalized.loanDisbursementDate)
+          if (loanDate) {
             updateFields.loanDisbursementDate = loanDate
           } else {
             throw new Error(
-              `Invalid loan disbursement date format: "${normalized.loanDisbursementDate}". Use dd-MM-yy`
+              `Invalid loan disbursement date format: "${normalized.loanDisbursementDate}". Expected dd-MM-yy or dd-MM-yyyy`
             )
           }
+        }
+
+        // Handle lenderName
+        const lenderVal = normalized.lenderName || normalized.lender
+        if (lenderVal) {
+          updateFields.lenderName = lenderVal.trim()
+        }
+
+        // Handle invoicePaymentStatus ('Pending Payment', 'Paid', 'Overdue')
+        if (normalized.invoicePaymentStatus) {
+          const rawStatus = normalized.invoicePaymentStatus.trim()
+          const matchedStatus = Object.values(INVOICE_PAYMENT_STATUS).find(
+            (s) => s.toLowerCase() === rawStatus.toLowerCase()
+          )
+          if (matchedStatus) {
+            updateFields.invoicePaymentStatus = matchedStatus
+          } else {
+            throw new Error(
+              `Invalid invoice payment status: "${normalized.invoicePaymentStatus}". Valid options: Pending Payment, Paid, Overdue`
+            )
+          }
+        }
+
+        // Handle paymentReceivedDate
+        if (normalized.paymentReceivedDate) {
+          const receivedDate = parseFlexibleDate(normalized.paymentReceivedDate)
+          if (receivedDate) {
+            updateFields.paymentReceivedDate = receivedDate
+          } else {
+            throw new Error(
+              `Invalid payment received date format: "${normalized.paymentReceivedDate}". Expected dd-MM-yy or dd-MM-yyyy`
+            )
+          }
+        }
+
+        // Compute Ageing and Payment Due calculations
+        const lddForCalc =
+          updateFields.loanDisbursementDate ||
+          dbInvoice.loanDisbursementDate ||
+          null
+        const lenderForCalc =
+          updateFields.lenderName ||
+          normalized.lenderName ||
+          dbInvoice.lenderName ||
+          null
+        const anchorForCalc =
+          normalized.anchorId || dbInvoice.anchorId || null
+        const paymentStatusForCalc =
+          updateFields.invoicePaymentStatus ||
+          normalized.invoicePaymentStatus ||
+          dbInvoice.invoicePaymentStatus ||
+          null
+        const paymentReceivedDateForCalc =
+          updateFields.paymentReceivedDate ||
+          dbInvoice.paymentReceivedDate ||
+          null
+
+        const dueDays = getPaymentDueDays(lenderForCalc, anchorForCalc)
+        if (dueDays !== null && dueDays !== undefined) {
+          updateFields.paymentDueDays = dueDays
+          if (lddForCalc) {
+            const dueDate = new Date(lddForCalc)
+            dueDate.setDate(dueDate.getDate() + dueDays)
+            updateFields.paymentDueDate = dueDate
+          }
+        }
+
+        if (lddForCalc) {
+          const isPaid = (paymentStatusForCalc || '').toLowerCase() === 'paid'
+          const endDate =
+            isPaid && paymentReceivedDateForCalc
+              ? new Date(paymentReceivedDateForCalc)
+              : new Date()
+          const diffTime = endDate.getTime() - new Date(lddForCalc).getTime()
+          updateFields.currentAgeingDays = Math.max(
+            0,
+            Math.floor(diffTime / (1000 * 60 * 60 * 24))
+          )
         }
 
         // Handle utr
@@ -191,25 +314,32 @@ export async function invoiceCsvParseAndSave(req, res) {
 
           if (validStatuses.includes(_status)) {
             updateFields.status = _status
-            //check if the invoice if from whitelisted distributors
-            const isDistWhiteListed = await isDistributorAllowed(
-              normalized.distributorCode
-            )
-            if (isDistWhiteListed) {
-              if (_status === INV_STATUS.PROCESSED) {
-                await updateInvoiceStatus(
-                  normalized.invoiceNumber,
-                  EMAIL_STATUS.SENT,
-                  'emailStatus'
-                )
+            try {
+              // check if the invoice is from whitelisted distributors
+              const isDistWhiteListed = await isDistributorAllowed(
+                normalized.distributorCode
+              )
+              if (isDistWhiteListed) {
+                if (_status === INV_STATUS.PROCESSED) {
+                  await updateInvoiceStatus(
+                    normalized.invoiceNumber,
+                    EMAIL_STATUS.SENT,
+                    'emailStatus'
+                  )
+                }
+                if (_status === INV_STATUS.NOT_PROCESSED) {
+                  await updateInvoiceStatus(
+                    normalized.invoiceNumber,
+                    EMAIL_STATUS.NOT_ELIGIBLE,
+                    'emailStatus'
+                  )
+                }
               }
-              if (_status === INV_STATUS.NOT_PROCESSED) {
-                await updateInvoiceStatus(
-                  normalized.invoiceNumber,
-                  EMAIL_STATUS.NOT_ELIGIBLE,
-                  'emailStatus'
-                )
-              }
+            } catch (distErr) {
+              console.warn(
+                `Failed checking whitelist for distributor ${normalized.distributorCode}:`,
+                distErr.message
+              )
             }
           } else {
             throw new Error(
