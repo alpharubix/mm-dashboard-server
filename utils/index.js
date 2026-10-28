@@ -57,35 +57,21 @@ export const formatAmount = (amount) => {
 
 // Map of Anchor ID -> Lender Name (normalized lower case) -> Payment Due Days
 export const LENDER_ANCHOR_AGEING_DAYS = {
-  default: {
-    kotak: 90,
-    'kotak mahindra': 90,
-    tyger: 60,
-    'tyger capital': 60,
-    muthoot: 45,
-    hero: 60,
-    rupifi: 30,
-    rupfi: 30,
-  },
   hwc: {
     kotak: 90,
     'kotak mahindra': 90,
     tyger: 60,
     'tyger capital': 60,
     muthoot: 45,
-    hero: 60,
-    rupifi: 30,
-    rupfi: 30,
+    hero: 90,
   },
   ckpl: {
     kotak: 60,
-    'kotak mahindra': 90,
-    tyger: 60,
-    'tyger capital': 60,
+    'kotak mahindra': 60,
+    tyger: 30,
+    'tyger capital': 30,
     muthoot: 45,
     hero: 60,
-    rupifi: 30,
-    rupfi: 30,
   },
 }
 
