@@ -3,6 +3,9 @@ import { ENV } from './conf/index.js'
 
 export async function connectDB() {
   try {
+    console.log('Connecting to MongoDB...')
+    console.log(ENV.MONGODB_URL)
+    console.log(ENV.MONGODB_DB_NAME)
     await mongoose.connect(`${ENV.MONGODB_URL}/${ENV.MONGODB_DB_NAME}`)
     console.log('Connected to MongoDB')
   } catch (error) {

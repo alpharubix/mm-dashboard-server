@@ -2,8 +2,11 @@ import express from 'express'
 import helmet from 'helmet'
 import corsMiddleware from './utils/cors.js'
 
+
 import pinoHttp from 'pino-http'
+import mongoose from 'mongoose'
 import authRoutes from './routes/auth.route.js'
+import bannerRoutes from './routes/banner.route.js'
 import creditLimitRoutes from './routes/credit-limit.route.js'
 import emailRoutes from './routes/email.route.js'
 import invoiceRoutes from './routes/invoice.route.js'
@@ -11,7 +14,11 @@ import onboardRoutes from './routes/onboard.route.js'
 import userRoutes from './routes/user.route.js'
 import viewerRoutes from './routes/viewer.route.js'
 import distributorRoutes from './routes/whitelist-dist.route.js'
+
 import logger from './utils/logger.js'
+
+import supportTicketRoutes from './routes/support-ticket.route.js'
+
 
 const routes = [
   authRoutes,
@@ -22,6 +29,8 @@ const routes = [
   viewerRoutes,
   emailRoutes,
   distributorRoutes,
+  bannerRoutes,
+  supportTicketRoutes,
 ]
 
 export const app = express()
@@ -66,6 +75,41 @@ app.get('/', (req, res) => {
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }))
 
+// Add this near your other routes
+app.get('/api/v1/db-check', async (req, res) => {
+  try {
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    const dbState = mongoose.connection.readyState
+    const stateMap = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+    }
+
+    if (dbState !== 1) {
+      return res
+        .status(500)
+        .json({ status: 'error', database: stateMap[dbState] })
+    }
+
+    // Optional: Try running a lightweight command like pinging the admin database
+    await mongoose.connection.db.admin().ping()
+
+    res.status(200).json({
+      status: 'success',
+      database: stateMap[dbState],
+      host: mongoose.connection.host,
+      name: mongoose.connection.name, // checks if the db name is correct
+    })
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Database check failed',
+      error: error.message,
+    })
+  }
+})
 routes.forEach((r) => app.use('/api/v1', r))
 
 // 404 JSON fallback for unknown API routes
