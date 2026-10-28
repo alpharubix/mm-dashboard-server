@@ -4,6 +4,7 @@ import { CreditLimit } from '../../models/credit-limit.model.js'
 import { Invoice } from '../../models/invoice.model.js'
 
 import { calculateBillingStatus } from '../../utils/index.js'
+import logger from '../../utils/logger.js'
 import { acquireLock, releaseLock } from '../../utils/recalculation-lock.js'
 import { calculatePendingInvoices } from '../../utils/services.js'
 import {
@@ -221,10 +222,17 @@ export async function invoiceInput(req, res) {
           }
         }
       } catch (invoiceError) {
-        console.error('Invoice creation error:', invoiceError.message)
+        logger.error(
+          {
+            err: invoiceError,
+            invoiceNumber: invoice.invoiceNumber,
+            distributorCode: invoice.distributorCode,
+          },
+          'Invoice creation failed'
+        )
         errors.push({
           invoiceNumber: invoice.invoiceNumber,
-          error: 'Creation failed',
+          error: invoiceError.message,
         })
       }
     }

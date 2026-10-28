@@ -35,6 +35,8 @@
     "multer": "^1.4.5-lts.2",
     "node-cron": "^3.0.3",
     "nodemailer": "^7.0.6",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "winston": "^3.17.0"
   },
   "devDependencies": {

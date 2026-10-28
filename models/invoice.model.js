@@ -14,6 +14,16 @@ const invoice = new mongoose.Schema(
     invoiceDate: { type: Date, required: true },
     loanAmount: { type: Number, required: true },
     loanDisbursementDate: { type: Date, default: null },
+    lenderName: { type: String, default: null },
+    invoicePaymentStatus: {
+      type: String,
+      enum: ['Pending Payment', 'Paid', 'Overdue', null],
+      default: null,
+    },
+    paymentReceivedDate: { type: Date, default: null },
+    paymentDueDays: { type: Number, default: null },
+    paymentDueDate: { type: Date, default: null },
+    currentAgeingDays: { type: Number, default: null },
     utr: { type: String, default: null },
     anchorId: { type: String, required: true },
     distributorPhone: { type: String, required: true }, //this field has to be unique
