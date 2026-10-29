@@ -58,20 +58,17 @@ export const formatAmount = (amount) => {
 // Map of Anchor ID -> Lender Name (normalized lower case) -> Payment Due Days
 export const LENDER_ANCHOR_AGEING_DAYS = {
   hwc: {
-    kotak: 90,
     'kotak mahindra': 90,
-    tyger: 60,
     'tyger capital': 60,
     muthoot: 45,
-    hero: 90,
+    'hero fincorp': 60,
+    rupifi: 30,
   },
   ckpl: {
-    kotak: 60,
     'kotak mahindra': 60,
-    tyger: 30,
     'tyger capital': 30,
     muthoot: 45,
-    hero: 60,
+    'hero fincorp': 60,
   },
 }
 
@@ -80,12 +77,19 @@ export function getPaymentDueDays(lenderName, anchorId) {
   const normalizedLender = lenderName.toString().trim().toLowerCase()
   const normalizedAnchor = (anchorId || '').toString().trim().toLowerCase()
 
-  const anchorMap = LENDER_ANCHOR_AGEING_DAYS[normalizedAnchor] || LENDER_ANCHOR_AGEING_DAYS.default
-  return anchorMap[normalizedLender] ?? LENDER_ANCHOR_AGEING_DAYS.default[normalizedLender] ?? null
+  const anchorMap =
+    LENDER_ANCHOR_AGEING_DAYS[normalizedAnchor] ||
+    LENDER_ANCHOR_AGEING_DAYS.default
+  return (
+    anchorMap[normalizedLender] ??
+    LENDER_ANCHOR_AGEING_DAYS.default[normalizedLender] ??
+    null
+  )
 }
 
 export function computeInvoiceAgeing(invoice) {
-  const inv = typeof invoice.toObject === 'function' ? invoice.toObject() : { ...invoice }
+  const inv =
+    typeof invoice.toObject === 'function' ? invoice.toObject() : { ...invoice }
 
   let paymentDueDays = inv.paymentDueDays
   if (paymentDueDays === null || paymentDueDays === undefined) {
@@ -106,12 +110,20 @@ export function computeInvoiceAgeing(invoice) {
   if (inv.loanDisbursementDate) {
     const ldd = new Date(inv.loanDisbursementDate)
     if (!isNaN(ldd.getTime())) {
-      const isPaid = (inv.invoicePaymentStatus || '').toString().trim().toLowerCase() === 'paid'
-      const endDate = isPaid && inv.paymentReceivedDate ? new Date(inv.paymentReceivedDate) : new Date()
+      const isPaid =
+        (inv.invoicePaymentStatus || '').toString().trim().toLowerCase() ===
+        'paid'
+      const endDate =
+        isPaid && inv.paymentReceivedDate
+          ? new Date(inv.paymentReceivedDate)
+          : new Date()
 
       // Calculate whole calendar days difference
       const diffTime = endDate.getTime() - ldd.getTime()
-      currentAgeingDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)))
+      currentAgeingDays = Math.max(
+        0,
+        Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      )
     }
   }
 
@@ -122,4 +134,3 @@ export function computeInvoiceAgeing(invoice) {
     currentAgeingDays: currentAgeingDays ?? null,
   }
 }
-
