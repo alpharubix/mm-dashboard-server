@@ -112,7 +112,18 @@ export async function invoiceCsvParseAndSave(req, res) {
         )
         .on('data', (row) => {
           currentRowNumber++
-          rows.push({ ...row, _rowNumber: currentRowNumber })
+          // Check if row has at least one non-empty value (ignoring _rowNumber)
+          const hasAnyValue = Object.keys(row).some((key) => {
+            const val = row[key]
+            if (val === undefined || val === null) return false
+            const trimmed = String(val).trim()
+            if (trimmed === '') return false
+            return !NULL_VALUES.includes(trimmed)
+          })
+
+          if (hasAnyValue) {
+            rows.push({ ...row, _rowNumber: currentRowNumber })
+          }
         })
         .on('end', resolve)
         .on('error', reject)
@@ -176,6 +187,14 @@ export async function invoiceCsvParseAndSave(req, res) {
             normalized[key] = normalizeValue(r[key])
           }
         })
+
+        // Skip row if it has no meaningful data or if both invoiceNumber and distributorCode are missing
+        const hasMeaningfulData = Object.values(normalized).some(
+          (val) => val !== null && val !== undefined && val !== ''
+        )
+        if (!hasMeaningfulData || (!normalized.invoiceNumber && !normalized.distributorCode)) {
+          continue
+        }
 
         // Required fields validation
         if (!normalized.invoiceNumber) {
