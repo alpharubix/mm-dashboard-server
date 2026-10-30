@@ -22,6 +22,8 @@ export const NULL_VALUES = [
   '',
   'NA',
   'N/A',
+  '#N/A',
+  '#n/a',
   'NULL',
   'null',
   '-',

@@ -112,7 +112,18 @@ export async function invoiceCsvParseAndSave(req, res) {
         )
         .on('data', (row) => {
           currentRowNumber++
-          rows.push({ ...row, _rowNumber: currentRowNumber })
+          // Check if row has at least one non-empty value (ignoring _rowNumber)
+          const hasAnyValue = Object.keys(row).some((key) => {
+            const val = row[key]
+            if (val === undefined || val === null) return false
+            const trimmed = String(val).trim()
+            if (trimmed === '') return false
+            return !NULL_VALUES.includes(trimmed)
+          })
+
+          if (hasAnyValue) {
+            rows.push({ ...row, _rowNumber: currentRowNumber })
+          }
         })
         .on('end', resolve)
         .on('error', reject)
@@ -176,6 +187,14 @@ export async function invoiceCsvParseAndSave(req, res) {
             normalized[key] = normalizeValue(r[key])
           }
         })
+
+        // Skip row if it has no meaningful data or if both invoiceNumber and distributorCode are missing
+        const hasMeaningfulData = Object.values(normalized).some(
+          (val) => val !== null && val !== undefined && val !== ''
+        )
+        if (!hasMeaningfulData || (!normalized.invoiceNumber && !normalized.distributorCode)) {
+          continue
+        }
 
         // Required fields validation
         if (!normalized.invoiceNumber) {
@@ -301,49 +320,52 @@ export async function invoiceCsvParseAndSave(req, res) {
         }
 
         // Handle status
-        if (normalized.status) {
-          const _status = toCamelCase(normalized.status)
-          const validStatuses = [
-            'yetToProcess',
-            'inProgress',
-            'processed',
-            'pendingWithCustomer',
-            'pendingWithLender',
-            'notProcessed',
-          ]
+        if (
+          normalized.status ||
+          (r.status !== undefined &&
+            r.status !== null &&
+            String(r.status).trim() !== '')
+        ) {
+          const rawStatus = String(normalized.status || r.status).trim()
+          const cleanStatus = rawStatus.toLowerCase().replace(/[^a-z]/g, '')
+          const statusMap = {
+            yettoprocess: INV_STATUS.YET_TO_PROCESS,
+            inprogress: INV_STATUS.IN_PROGRESS,
+            processed: INV_STATUS.PROCESSED,
+            pendingwithcustomer: INV_STATUS.PENDING_WITH_CUSTOMER,
+            pendingwithlender: INV_STATUS.PENDING_WITH_LENDER,
+            notprocessed: INV_STATUS.NOT_PROCESSED,
+          }
 
-          if (validStatuses.includes(_status)) {
-            updateFields.status = _status
-            try {
-              // check if the invoice is from whitelisted distributors
-              const isDistWhiteListed = await isDistributorAllowed(
-                normalized.distributorCode
-              )
-              if (isDistWhiteListed) {
-                if (_status === INV_STATUS.PROCESSED) {
-                  await updateInvoiceStatus(
-                    normalized.invoiceNumber,
-                    EMAIL_STATUS.SENT,
-                    'emailStatus'
-                  )
-                }
-                if (_status === INV_STATUS.NOT_PROCESSED) {
-                  await updateInvoiceStatus(
-                    normalized.invoiceNumber,
-                    EMAIL_STATUS.NOT_ELIGIBLE,
-                    'emailStatus'
-                  )
-                }
+          // If valid status, use it; otherwise silently default to yetToProcess without error
+          const _status = statusMap[cleanStatus] || INV_STATUS.YET_TO_PROCESS
+          updateFields.status = _status
+
+          try {
+            // check if the invoice is from whitelisted distributors
+            const isDistWhiteListed = await isDistributorAllowed(
+              normalized.distributorCode
+            )
+            if (isDistWhiteListed) {
+              if (_status === INV_STATUS.PROCESSED) {
+                await updateInvoiceStatus(
+                  normalized.invoiceNumber,
+                  EMAIL_STATUS.SENT,
+                  'emailStatus'
+                )
               }
-            } catch (distErr) {
-              console.warn(
-                `Failed checking whitelist for distributor ${normalized.distributorCode}:`,
-                distErr.message
-              )
+              if (_status === INV_STATUS.NOT_PROCESSED) {
+                await updateInvoiceStatus(
+                  normalized.invoiceNumber,
+                  EMAIL_STATUS.NOT_ELIGIBLE,
+                  'emailStatus'
+                )
+              }
             }
-          } else {
-            throw new Error(
-              `Invalid status: "${normalized.status}". Valid options: ${validStatuses.join(', ')}`
+          } catch (distErr) {
+            console.warn(
+              `Failed checking whitelist for distributor ${normalized.distributorCode}:`,
+              distErr.message
             )
           }
         }
